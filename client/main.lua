@@ -65,15 +65,17 @@ end
 -- Arrêter de porter
 local function StopCarrying()
     if isCarrying then
-        ClearPedTasksImmediately(PlayerPedId())
-        DetachEntity(PlayerPedId(), true, false)
-        isCarrying = false
-        carriedPlayer = nil
+        local playerPed = PlayerPedId()
+        ClearPedTasksImmediately(playerPed)
+        DetachEntity(playerPed, true, false)
 
         if DoesEntityExist(carriedPlayer) then
             ClearPedTasksImmediately(carriedPlayer)
             DetachEntity(carriedPlayer, true, false)
         end
+
+        isCarrying = false
+        carriedPlayer = nil
 
         TriggerServerEvent('ox_target:stopCarry')
     elseif isBeingCarried then
@@ -102,15 +104,17 @@ end
 -- Arrêter la prise d'otage
 local function StopHostage()
     if isTakingHostage then
-        ClearPedTasksImmediately(PlayerPedId())
-        DetachEntity(PlayerPedId(), true, false)
-        isTakingHostage = false
-        hostagePlayer = nil
+        local playerPed = PlayerPedId()
+        ClearPedTasksImmediately(playerPed)
+        DetachEntity(playerPed, true, false)
 
         if DoesEntityExist(hostagePlayer) then
             ClearPedTasksImmediately(hostagePlayer)
             DetachEntity(hostagePlayer, true, false)
         end
+
+        isTakingHostage = false
+        hostagePlayer = nil
 
         TriggerServerEvent('ox_target:stopHostage')
     elseif isHostage then
@@ -191,7 +195,8 @@ end
 
 -- Donner un objet
 local function GiveItem(data)
-    exports.ox_inventory:openInventory('player', data.serverId)
+    -- Ouvre simplement ton inventaire pour que tu puisses donner un objet
+    ExecuteCommand('inventory')
 end
 
 -- Serrer la main
@@ -217,6 +222,20 @@ end
 -- Demander les papiers
 local function CheckID(data)
     TriggerServerEvent('ox_target:checkID', data.serverId)
+end
+
+-- Menotter (Police uniquement)
+local function HandcuffPlayer(data)
+    TriggerServerEvent('ox_target:handcuffPlayer', data.serverId)
+end
+
+-- Prendre le pouls (Médecin uniquement)
+local function CheckPulse(data)
+    local playerPed = PlayerPedId()
+    LoadAnimDict(Config.Animations.checkpulse.dict)
+    TaskPlayAnim(playerPed, Config.Animations.checkpulse.dict, Config.Animations.checkpulse.anim, 8.0, -8.0, 3000, Config.Animations.checkpulse.flag, 0, false, false, false)
+
+    TriggerServerEvent('ox_target:checkPulse', data.serverId)
 end
 
 -- Events client
@@ -248,8 +267,6 @@ RegisterNetEvent('ox_target:startCarrying', function(targetId)
         carriedPlayer = targetPed
 
         LoadAnimDict(Config.Animations.carry.dict)
-
-        AttachEntityToEntity(playerPed, targetPed, 0, 0.27, 0.15, 0.63, 0.5, 0.5, 0.0, false, false, false, false, 2, false)
         TaskPlayAnim(playerPed, Config.Animations.carry.dict, Config.Animations.carry.anim, 8.0, -8.0, -1, Config.Animations.carry.flag, 0, false, false, false)
 
         lib.notify({
@@ -270,7 +287,8 @@ RegisterNetEvent('ox_target:startBeingCarried', function(carrierId)
 
         LoadAnimDict(Config.Animations.carried.dict)
 
-        AttachEntityToEntity(playerPed, carrierPed, 0, 0.27, 0.15, 0.63, 0.5, 0.5, 0.0, false, false, false, false, 2, false)
+        local bone = GetPedBoneIndex(carrierPed, 11816) -- SKEL_Spine3
+        AttachEntityToEntity(playerPed, carrierPed, bone, 0.0, 0.4, 0.0, 0.0, 0.0, 0.0, false, false, true, false, 2, true)
         TaskPlayAnim(playerPed, Config.Animations.carried.dict, Config.Animations.carried.anim, 8.0, -8.0, -1, Config.Animations.carried.flag, 0, false, false, false)
     end
 end)
@@ -319,8 +337,6 @@ RegisterNetEvent('ox_target:startTakingHostage', function(targetId)
         hostagePlayer = targetPed
 
         LoadAnimDict(Config.Animations.hostage_taker.dict)
-
-        AttachEntityToEntity(playerPed, targetPed, 0, -0.24, 0.11, 0.0, 0.5, 0.5, 0.0, false, false, false, false, 2, false)
         TaskPlayAnim(playerPed, Config.Animations.hostage_taker.dict, Config.Animations.hostage_taker.anim, 8.0, -8.0, -1, Config.Animations.hostage_taker.flag, 0, false, false, false)
 
         lib.notify({
@@ -341,7 +357,8 @@ RegisterNetEvent('ox_target:startBeingHostage', function(takerId)
 
         LoadAnimDict(Config.Animations.hostage.dict)
 
-        AttachEntityToEntity(playerPed, takerPed, 0, -0.24, 0.11, 0.0, 0.5, 0.5, 0.0, false, false, false, false, 2, false)
+        local bone = GetPedBoneIndex(takerPed, 11816) -- SKEL_Spine3
+        AttachEntityToEntity(playerPed, takerPed, bone, 0.0, 0.45, 0.0, 0.0, 0.0, 0.0, false, false, true, false, 2, true)
         TaskPlayAnim(playerPed, Config.Animations.hostage.dict, Config.Animations.hostage.anim, 8.0, -8.0, -1, Config.Animations.hostage.flag, 0, false, false, false)
     end
 end)
@@ -417,6 +434,7 @@ RegisterNetEvent('ox_target:showID', function(playerData)
         id = 'id_menu',
         title = 'Carte d\'identité',
         options = {
+            {label = 'ID: ' .. playerData.serverId},
             {label = 'Nom: ' .. playerData.firstName .. ' ' .. playerData.lastName},
             {label = 'Date de naissance: ' .. playerData.dateOfBirth},
             {label = 'Sexe: ' .. (playerData.sex == 'm' and 'Homme' or 'Femme')},
@@ -425,6 +443,26 @@ RegisterNetEvent('ox_target:showID', function(playerData)
     })
 
     lib.showContext('id_menu')
+end)
+
+RegisterNetEvent('ox_target:receiveHandcuff', function(name)
+    local playerPed = PlayerPedId()
+    LoadAnimDict(Config.Animations.handcuff.dict)
+    TaskPlayAnim(playerPed, Config.Animations.handcuff.dict, Config.Animations.handcuff.anim, 8.0, -8.0, -1, Config.Animations.handcuff.flag, 0, false, false, false)
+
+    lib.notify({
+        title = 'Menottage',
+        description = 'Vous avez été menotté par ' .. name,
+        type = 'warning'
+    })
+end)
+
+RegisterNetEvent('ox_target:receivePulseCheck', function(pulse)
+    lib.notify({
+        title = 'Résultat',
+        description = 'Pouls: ' .. pulse .. ' BPM',
+        type = 'info'
+    })
 end)
 
 -- Contrôles
@@ -452,7 +490,7 @@ CreateThread(function()
     if Config.EnableCarry then
         table.insert(options, {
             name = 'carry_player',
-            label = '🚶 Porter le joueur',
+            label = 'Porter le joueur',
             icon = 'fa-solid fa-person-carry',
             distance = Config.InteractionDistance,
             canInteract = function(entity, distance, coords, name, bone)
@@ -472,7 +510,7 @@ CreateThread(function()
     if Config.EnableHostage then
         table.insert(options, {
             name = 'take_hostage',
-            label = '🔫 Prendre en otage',
+            label = 'Prendre en otage',
             icon = 'fa-solid fa-user-shield',
             distance = Config.InteractionDistance,
             canInteract = function(entity, distance, coords, name, bone)
@@ -492,7 +530,7 @@ CreateThread(function()
     if Config.EnableCopyAnim then
         table.insert(options, {
             name = 'copy_animation',
-            label = '🎭 Copier l\'animation',
+            label = 'Copier l\'animation',
             icon = 'fa-solid fa-copy',
             distance = Config.InteractionDistance,
             onSelect = function(data)
@@ -509,7 +547,7 @@ CreateThread(function()
     if Config.EnableGreet then
         table.insert(options, {
             name = 'greet_player',
-            label = '👋 Dire bonjour',
+            label = 'Dire bonjour',
             icon = 'fa-solid fa-hand-wave',
             distance = Config.InteractionDistance,
             onSelect = function(data)
@@ -526,7 +564,7 @@ CreateThread(function()
     if Config.EnableGiveMoney then
         table.insert(options, {
             name = 'give_money',
-            label = '💵 Donner de l\'argent',
+            label = 'Donner de l\'argent',
             icon = 'fa-solid fa-money-bill',
             distance = Config.InteractionDistance,
             onSelect = function(data)
@@ -543,7 +581,7 @@ CreateThread(function()
     if Config.EnableGiveItem then
         table.insert(options, {
             name = 'give_item',
-            label = '🎁 Donner un objet',
+            label = 'Donner un objet',
             icon = 'fa-solid fa-gift',
             distance = Config.InteractionDistance,
             onSelect = function(data)
@@ -560,7 +598,7 @@ CreateThread(function()
     if Config.EnableHandshake then
         table.insert(options, {
             name = 'handshake',
-            label = '🤝 Serrer la main',
+            label = 'Serrer la main',
             icon = 'fa-solid fa-handshake',
             distance = Config.InteractionDistance,
             onSelect = function(data)
@@ -577,7 +615,7 @@ CreateThread(function()
     if Config.EnableSearch then
         table.insert(options, {
             name = 'search_player',
-            label = '🔍 Fouiller',
+            label = 'Fouiller',
             icon = 'fa-solid fa-magnifying-glass',
             distance = Config.InteractionDistance,
             groups = Config.PoliceJobs,
@@ -595,7 +633,7 @@ CreateThread(function()
     if Config.EnableCheckID then
         table.insert(options, {
             name = 'check_id',
-            label = '📄 Demander les papiers',
+            label = 'Demander les papiers',
             icon = 'fa-solid fa-id-card',
             distance = Config.InteractionDistance,
             onSelect = function(data)
@@ -603,6 +641,42 @@ CreateThread(function()
                 if targetPlayer ~= -1 then
                     local serverId = GetPlayerServerId(targetPlayer)
                     CheckID({serverId = serverId})
+                end
+            end
+        })
+    end
+
+    -- Menotter (Police uniquement)
+    if Config.EnableHandcuff then
+        table.insert(options, {
+            name = 'handcuff_player',
+            label = 'Menotter',
+            icon = 'fa-solid fa-handcuffs',
+            distance = Config.InteractionDistance,
+            groups = Config.PoliceJobs,
+            onSelect = function(data)
+                local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
+                if targetPlayer ~= -1 then
+                    local serverId = GetPlayerServerId(targetPlayer)
+                    HandcuffPlayer({serverId = serverId})
+                end
+            end
+        })
+    end
+
+    -- Prendre le pouls (Médecin uniquement)
+    if Config.EnableCheckPulse then
+        table.insert(options, {
+            name = 'check_pulse',
+            label = 'Prendre le pouls',
+            icon = 'fa-solid fa-heartbeat',
+            distance = Config.InteractionDistance,
+            groups = Config.MedicJobs,
+            onSelect = function(data)
+                local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
+                if targetPlayer ~= -1 then
+                    local serverId = GetPlayerServerId(targetPlayer)
+                    CheckPulse({serverId = serverId})
                 end
             end
         })

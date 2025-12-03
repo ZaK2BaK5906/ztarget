@@ -21,6 +21,8 @@ Config.EnableGiveItem = true
 Config.EnableHandshake = true
 Config.EnableSearch = true -- Nécessite un job de police
 Config.EnableCheckID = true
+Config.EnableHandcuff = true -- Nécessite un job de police
+Config.EnableCheckPulse = true -- Nécessite un job de médecin
 
 -- Animations
 Config.Animations = {
@@ -53,5 +55,15 @@ Config.Animations = {
         dict = 'mp_ped_interaction',
         anim = 'handshake_guy_a',
         flag = 48
+    },
+    handcuff = {
+        dict = 'mp_arresting',
+        anim = 'idle',
+        flag = 49
+    },
+    checkpulse = {
+        dict = 'amb@medic@standing@kneel@base',
+        anim = 'base',
+        flag = 1
     }
 }

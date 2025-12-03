@@ -244,6 +244,7 @@ RegisterNetEvent('ox_target:checkID', function(targetId)
     }, function(result)
         if result[1] then
             local playerData = {
+                serverId = targetId,
                 firstName = result[1].firstname,
                 lastName = result[1].lastname,
                 dateOfBirth = result[1].dateofbirth,
@@ -267,6 +268,93 @@ RegisterNetEvent('ox_target:checkID', function(targetId)
             })
         end
     end)
+end)
+
+-- Menotter un joueur
+RegisterNetEvent('ox_target:handcuffPlayer', function(targetId)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    local xTarget = ESX.GetPlayerFromId(targetId)
+
+    if not xPlayer or not xTarget then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Erreur',
+            description = 'Joueur introuvable',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Vérifier que le joueur est policier
+    local isPolice = false
+    for _, job in ipairs(Config.PoliceJobs) do
+        if xPlayer.job.name == job then
+            isPolice = true
+            break
+        end
+    end
+
+    if not isPolice then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Erreur',
+            description = 'Vous n\'êtes pas autorisé à menotter',
+            type = 'error'
+        })
+        return
+    end
+
+    TriggerClientEvent('ox_target:receiveHandcuff', targetId, xPlayer.getName())
+
+    TriggerClientEvent('ox_lib:notify', source, {
+        title = 'Menottage',
+        description = 'Vous avez menotté ' .. xTarget.getName(),
+        type = 'success'
+    })
+end)
+
+-- Prendre le pouls
+RegisterNetEvent('ox_target:checkPulse', function(targetId)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    local xTarget = ESX.GetPlayerFromId(targetId)
+
+    if not xPlayer or not xTarget then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Erreur',
+            description = 'Joueur introuvable',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Vérifier que le joueur est médecin
+    local isMedic = false
+    for _, job in ipairs(Config.MedicJobs) do
+        if xPlayer.job.name == job then
+            isMedic = true
+            break
+        end
+    end
+
+    if not isMedic then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Erreur',
+            description = 'Vous n\'êtes pas autorisé à prendre le pouls',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Générer un pouls aléatoire réaliste (60-100 BPM)
+    local pulse = math.random(60, 100)
+
+    TriggerClientEvent('ox_target:receivePulseCheck', source, pulse)
+
+    TriggerClientEvent('ox_lib:notify', targetId, {
+        title = 'Examen médical',
+        description = xPlayer.getName() .. ' prend votre pouls',
+        type = 'info'
+    })
 end)
 
 -- Déconnexion : nettoyer les états
