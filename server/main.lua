@@ -276,6 +276,16 @@ RegisterNetEvent('ox_target:handcuffPlayer', function(targetId)
     })
 end)
 
+-- Copier l'animation
+RegisterNetEvent('ox_target:requestCopyAnim', function(targetId)
+    local source = source
+    TriggerClientEvent('ox_target:copyAnimRequest', targetId, source)
+end)
+
+RegisterNetEvent('ox_target:sendAnimData', function(requesterId, animDict, animName)
+    TriggerClientEvent('ox_target:receiveAnimData', requesterId, animDict, animName)
+end)
+
 -- Prendre le pouls
 RegisterNetEvent('ox_target:checkPulse', function(targetId)
     local source = source

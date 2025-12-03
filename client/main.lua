@@ -9,6 +9,7 @@ local carryingPlayer = nil
 local carriedPlayer = nil
 local hostagePlayer = nil
 local hostagedBy = nil
+local currentAnim = {dict = nil, name = nil} -- Pour tracker l'animation actuelle
 
 -- Fonction pour charger une animation
 local function LoadAnimDict(dict)
@@ -18,6 +19,14 @@ local function LoadAnimDict(dict)
             Wait(10)
         end
     end
+end
+
+-- Fonction pour jouer une animation et la tracker
+local function PlayAnimAndTrack(ped, dict, anim, blendIn, blendOut, duration, flag, playbackRate)
+    LoadAnimDict(dict)
+    TaskPlayAnim(ped, dict, anim, blendIn or 8.0, blendOut or -8.0, duration or -1, flag or 0, playbackRate or 0, false, false, false)
+    currentAnim.dict = dict
+    currentAnim.name = anim
 end
 
 -- Fonction pour obtenir le joueur le plus proche
@@ -124,44 +133,13 @@ end
 
 -- Copier l'animation
 local function CopyAnimation(data)
-    local targetPed = GetPlayerPed(GetPlayerFromServerId(data.serverId))
-
-    if DoesEntityExist(targetPed) then
-        if IsEntityPlayingAnim(targetPed, GetEntityAnimCurrentName(targetPed, 0), GetEntityAnimCurrentName(targetPed, 1), 3) then
-            local animDict = GetEntityAnimCurrentName(targetPed, 0)
-            local animName = GetEntityAnimCurrentName(targetPed, 1)
-
-            if animDict and animName and animDict ~= '' and animName ~= '' then
-                LoadAnimDict(animDict)
-                TaskPlayAnim(PlayerPedId(), animDict, animName, 8.0, -8.0, -1, 0, 0, false, false, false)
-
-                lib.notify({
-                    title = 'Animation copiée',
-                    description = 'Vous avez copié l\'animation du joueur',
-                    type = 'success'
-                })
-            else
-                lib.notify({
-                    title = 'Erreur',
-                    description = 'Le joueur n\'effectue aucune animation',
-                    type = 'error'
-                })
-            end
-        else
-            lib.notify({
-                title = 'Erreur',
-                description = 'Le joueur n\'effectue aucune animation',
-                type = 'error'
-            })
-        end
-    end
+    TriggerServerEvent('ox_target:requestCopyAnim', data.serverId)
 end
 
 -- Dire bonjour
 local function Greet(data)
     local playerPed = PlayerPedId()
-    LoadAnimDict(Config.Animations.greet.dict)
-    TaskPlayAnim(playerPed, Config.Animations.greet.dict, Config.Animations.greet.anim, 8.0, -8.0, -1, Config.Animations.greet.flag, 0, false, false, false)
+    PlayAnimAndTrack(playerPed, Config.Animations.greet.dict, Config.Animations.greet.anim, 8.0, -8.0, -1, Config.Animations.greet.flag, 0)
 
     TriggerServerEvent('ox_target:greet', data.serverId)
 end
@@ -202,8 +180,7 @@ end
 -- Serrer la main
 local function Handshake(data)
     local playerPed = PlayerPedId()
-    LoadAnimDict(Config.Animations.handshake.dict)
-    TaskPlayAnim(playerPed, Config.Animations.handshake.dict, Config.Animations.handshake.anim, 8.0, -8.0, -1, Config.Animations.handshake.flag, 0, false, false, false)
+    PlayAnimAndTrack(playerPed, Config.Animations.handshake.dict, Config.Animations.handshake.anim, 8.0, -8.0, -1, Config.Animations.handshake.flag, 0)
 
     TriggerServerEvent('ox_target:handshake', data.serverId)
 
@@ -229,11 +206,10 @@ local function HandcuffPlayer(data)
     TriggerServerEvent('ox_target:handcuffPlayer', data.serverId)
 end
 
--- Prendre le pouls (Médecin uniquement)
+-- Prendre le pouls
 local function CheckPulse(data)
     local playerPed = PlayerPedId()
-    LoadAnimDict(Config.Animations.checkpulse.dict)
-    TaskPlayAnim(playerPed, Config.Animations.checkpulse.dict, Config.Animations.checkpulse.anim, 8.0, -8.0, 3000, Config.Animations.checkpulse.flag, 0, false, false, false)
+    PlayAnimAndTrack(playerPed, Config.Animations.checkpulse.dict, Config.Animations.checkpulse.anim, 8.0, -8.0, 3000, Config.Animations.checkpulse.flag, 0)
 
     TriggerServerEvent('ox_target:checkPulse', data.serverId)
 end
@@ -389,8 +365,7 @@ end)
 
 RegisterNetEvent('ox_target:receiveHandshake', function(name)
     local playerPed = PlayerPedId()
-    LoadAnimDict(Config.Animations.handshake.dict)
-    TaskPlayAnim(playerPed, Config.Animations.handshake.dict, Config.Animations.handshake.anim, 8.0, -8.0, -1, Config.Animations.handshake.flag, 0, false, false, false)
+    PlayAnimAndTrack(playerPed, Config.Animations.handshake.dict, Config.Animations.handshake.anim, 8.0, -8.0, -1, Config.Animations.handshake.flag, 0)
 
     lib.notify({
         title = 'Poignée de main',
@@ -447,8 +422,7 @@ end)
 
 RegisterNetEvent('ox_target:receiveHandcuff', function(name)
     local playerPed = PlayerPedId()
-    LoadAnimDict(Config.Animations.handcuff.dict)
-    TaskPlayAnim(playerPed, Config.Animations.handcuff.dict, Config.Animations.handcuff.anim, 8.0, -8.0, -1, Config.Animations.handcuff.flag, 0, false, false, false)
+    PlayAnimAndTrack(playerPed, Config.Animations.handcuff.dict, Config.Animations.handcuff.anim, 8.0, -8.0, -1, Config.Animations.handcuff.flag, 0)
 
     lib.notify({
         title = 'Menottage',
@@ -463,6 +437,40 @@ RegisterNetEvent('ox_target:receivePulseCheck', function(pulse)
         description = 'Pouls: ' .. pulse .. ' BPM',
         type = 'info'
     })
+end)
+
+RegisterNetEvent('ox_target:copyAnimRequest', function(requesterId)
+    -- Quelqu'un veut copier mon animation
+    if currentAnim.dict and currentAnim.name then
+        -- Vérifier si je joue toujours cette animation
+        local ped = PlayerPedId()
+        if IsEntityPlayingAnim(ped, currentAnim.dict, currentAnim.name, 3) then
+            TriggerServerEvent('ox_target:sendAnimData', requesterId, currentAnim.dict, currentAnim.name)
+        else
+            TriggerServerEvent('ox_target:sendAnimData', requesterId, nil, nil)
+        end
+    else
+        TriggerServerEvent('ox_target:sendAnimData', requesterId, nil, nil)
+    end
+end)
+
+RegisterNetEvent('ox_target:receiveAnimData', function(animDict, animName)
+    if animDict and animName then
+        local ped = PlayerPedId()
+        PlayAnimAndTrack(ped, animDict, animName, 8.0, -8.0, -1, 0, 0)
+
+        lib.notify({
+            title = 'Animation copiée',
+            description = 'Vous avez copié l\'animation du joueur',
+            type = 'success'
+        })
+    else
+        lib.notify({
+            title = 'Erreur',
+            description = 'Le joueur n\'effectue aucune animation',
+            type = 'error'
+        })
+    end
 end)
 
 -- Contrôles
