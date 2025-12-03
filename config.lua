@@ -13,10 +13,10 @@ Config.EnableHostage = true
 Config.EnableCopyAnim = true
 Config.EnableGreet = true
 Config.EnableGiveMoney = true
-Config.EnableGiveItem = true
+Config.EnableGiveItem = false
 Config.EnableHandshake = true
 Config.EnableSearch = true -- Nécessite que la cible ait les mains levées
-Config.EnableCheckID = true
+Config.EnableCheckID = false
 Config.EnableHandcuff = true
 Config.EnableCheckPulse = true
 
