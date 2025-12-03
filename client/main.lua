@@ -265,9 +265,9 @@ RegisterNetEvent('ox_target:startBeingCarried', function(carrierId)
 
         LoadAnimDict(Config.Animations.carried.dict)
 
-        local bone = GetPedBoneIndex(carrierPed, 11816) -- SKEL_Spine3
-        -- Rotation pour mettre le joueur horizontal : 0.0, 90.0, 0.0
-        AttachEntityToEntity(playerPed, carrierPed, bone, 0.15, 0.27, 0.0, 0.0, 90.0, 180.0, false, false, true, false, 2, true)
+        local bone = GetPedBoneIndex(carrierPed, 0) -- Bone 0
+        -- Coordonnées exactes de p_ambulancejob
+        AttachEntityToEntity(playerPed, carrierPed, bone, 0.25, -0.05, 0.63, 0.25, 0.0, 180.0, false, false, false, false, 2, true)
         TaskPlayAnim(playerPed, Config.Animations.carried.dict, Config.Animations.carried.anim, 8.0, -8.0, -1, Config.Animations.carried.flag, 0, false, false, false)
     end
 end)
@@ -336,9 +336,9 @@ RegisterNetEvent('ox_target:startBeingHostage', function(takerId)
 
         LoadAnimDict(Config.Animations.hostage.dict)
 
-        local bone = GetPedBoneIndex(takerPed, 11816) -- SKEL_Spine3
-        -- Rotation pour mettre le joueur horizontal
-        AttachEntityToEntity(playerPed, takerPed, bone, 0.11, 0.45, 0.0, 0.0, 90.0, 180.0, false, false, true, false, 2, true)
+        local bone = GetPedBoneIndex(takerPed, 0) -- Bone 0
+        -- Coordonnées exactes de rpemotes
+        AttachEntityToEntity(playerPed, takerPed, bone, -0.3, 0.1, 0.0, 0.0, 0.0, 0.0, false, false, false, false, 2, true)
         TaskPlayAnim(playerPed, Config.Animations.hostage.dict, Config.Animations.hostage.anim, 8.0, -8.0, -1, Config.Animations.hostage.flag, 0, false, false, false)
     end
 end)

@@ -34,12 +34,12 @@ Config.Animations = {
     },
     hostage = {
         dict = 'anim@gangops@hostage@',
-        anim = 'perp_idle',
+        anim = 'victim_idle',
         flag = 49
     },
     hostage_taker = {
         dict = 'anim@gangops@hostage@',
-        anim = 'hitman_idle',
+        anim = 'perp_idle',
         flag = 49
     },
     greet = {
