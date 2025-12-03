@@ -22,5 +22,6 @@ dependencies {
     'ox_target',
     'ox_lib',
     'ox_inventory',
-    'es_extended'
+    'es_extended',
+    'p_policejob'
 }
