@@ -178,24 +178,6 @@ RegisterNetEvent('ox_target:searchPlayer', function(targetId)
         return
     end
 
-    -- Vérifier que le joueur est policier
-    local isPolice = false
-    for _, job in ipairs(Config.PoliceJobs) do
-        if xPlayer.job.name == job then
-            isPolice = true
-            break
-        end
-    end
-
-    if not isPolice then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = 'Erreur',
-            description = 'Vous n\'êtes pas autorisé à fouiller',
-            type = 'error'
-        })
-        return
-    end
-
     -- Récupérer l'inventaire du joueur
     local targetInventory = {
         money = xTarget.getMoney(),
@@ -285,24 +267,6 @@ RegisterNetEvent('ox_target:handcuffPlayer', function(targetId)
         return
     end
 
-    -- Vérifier que le joueur est policier
-    local isPolice = false
-    for _, job in ipairs(Config.PoliceJobs) do
-        if xPlayer.job.name == job then
-            isPolice = true
-            break
-        end
-    end
-
-    if not isPolice then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = 'Erreur',
-            description = 'Vous n\'êtes pas autorisé à menotter',
-            type = 'error'
-        })
-        return
-    end
-
     TriggerClientEvent('ox_target:receiveHandcuff', targetId, xPlayer.getName())
 
     TriggerClientEvent('ox_lib:notify', source, {
@@ -322,24 +286,6 @@ RegisterNetEvent('ox_target:checkPulse', function(targetId)
         TriggerClientEvent('ox_lib:notify', source, {
             title = 'Erreur',
             description = 'Joueur introuvable',
-            type = 'error'
-        })
-        return
-    end
-
-    -- Vérifier que le joueur est médecin
-    local isMedic = false
-    for _, job in ipairs(Config.MedicJobs) do
-        if xPlayer.job.name == job then
-            isMedic = true
-            break
-        end
-    end
-
-    if not isMedic then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = 'Erreur',
-            description = 'Vous n\'êtes pas autorisé à prendre le pouls',
             type = 'error'
         })
         return

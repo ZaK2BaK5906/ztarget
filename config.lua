@@ -3,10 +3,6 @@ Config = {}
 -- Distance maximale pour les interactions
 Config.InteractionDistance = 2.5
 
--- Groupes autorisés pour certaines actions (jobs ESX)
-Config.PoliceJobs = {'police', 'sheriff', 'fbi'}
-Config.MedicJobs = {'ambulance', 'doctor'}
-
 -- Montant minimum et maximum pour donner de l'argent
 Config.MinMoneyAmount = 1
 Config.MaxMoneyAmount = 50000
@@ -19,10 +15,10 @@ Config.EnableGreet = true
 Config.EnableGiveMoney = true
 Config.EnableGiveItem = true
 Config.EnableHandshake = true
-Config.EnableSearch = true -- Nécessite un job de police
+Config.EnableSearch = true -- Nécessite que la cible ait les mains levées
 Config.EnableCheckID = true
-Config.EnableHandcuff = true -- Nécessite un job de police
-Config.EnableCheckPulse = true -- Nécessite un job de médecin
+Config.EnableHandcuff = true
+Config.EnableCheckPulse = true
 
 -- Animations
 Config.Animations = {

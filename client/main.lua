@@ -611,14 +611,19 @@ CreateThread(function()
         })
     end
 
-    -- Fouiller (Police uniquement)
+    -- Fouiller (Mains levées uniquement)
     if Config.EnableSearch then
         table.insert(options, {
             name = 'search_player',
             label = 'Fouiller',
             icon = 'fa-solid fa-magnifying-glass',
             distance = Config.InteractionDistance,
-            groups = Config.PoliceJobs,
+            canInteract = function(entity, distance, coords, name, bone)
+                -- Vérifier si la cible a les mains levées
+                return IsEntityPlayingAnim(entity, 'random@mugging3', 'handsup_standing_base', 3) or
+                       IsEntityPlayingAnim(entity, 'missminuteman_1ig_2', 'handsup_base', 3) or
+                       IsEntityPlayingAnim(entity, 'mp_am_hold_up', 'handsup_standing_base', 3)
+            end,
             onSelect = function(data)
                 local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
                 if targetPlayer ~= -1 then
@@ -646,14 +651,13 @@ CreateThread(function()
         })
     end
 
-    -- Menotter (Police uniquement)
+    -- Menotter
     if Config.EnableHandcuff then
         table.insert(options, {
             name = 'handcuff_player',
             label = 'Menotter',
             icon = 'fa-solid fa-handcuffs',
             distance = Config.InteractionDistance,
-            groups = Config.PoliceJobs,
             onSelect = function(data)
                 local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
                 if targetPlayer ~= -1 then
@@ -664,14 +668,13 @@ CreateThread(function()
         })
     end
 
-    -- Prendre le pouls (Médecin uniquement)
+    -- Prendre le pouls
     if Config.EnableCheckPulse then
         table.insert(options, {
             name = 'check_pulse',
             label = 'Prendre le pouls',
             icon = 'fa-solid fa-heartbeat',
             distance = Config.InteractionDistance,
-            groups = Config.MedicJobs,
             onSelect = function(data)
                 local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
                 if targetPlayer ~= -1 then
