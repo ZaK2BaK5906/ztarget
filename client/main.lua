@@ -173,8 +173,8 @@ end
 
 -- Donner un objet
 local function GiveItem(data)
-    -- Ouvre simplement ton inventaire pour que tu puisses donner un objet
-    ExecuteCommand('inventory')
+    -- Ouvre ton inventaire
+    exports.ox_inventory:openInventory('player')
 end
 
 -- Serrer la main
@@ -191,9 +191,10 @@ local function Handshake(data)
     })
 end
 
--- Fouiller un joueur (Police uniquement)
+-- Fouiller un joueur
 local function SearchPlayer(data)
-    TriggerServerEvent('ox_target:searchPlayer', data.serverId)
+    -- Utiliser l'export de p_policejob pour fouiller
+    TriggerEvent('p_policejob/searchPlayer')
 end
 
 -- Demander les papiers
@@ -201,9 +202,10 @@ local function CheckID(data)
     TriggerServerEvent('ox_target:checkID', data.serverId)
 end
 
--- Menotter (Police uniquement)
+-- Menotter
 local function HandcuffPlayer(data)
-    TriggerServerEvent('ox_target:handcuffPlayer', data.serverId)
+    -- Utiliser l'export de p_policejob pour menotter
+    TriggerEvent('p_policejob/tiePlayer')
 end
 
 -- Prendre le pouls
@@ -264,7 +266,8 @@ RegisterNetEvent('ox_target:startBeingCarried', function(carrierId)
         LoadAnimDict(Config.Animations.carried.dict)
 
         local bone = GetPedBoneIndex(carrierPed, 11816) -- SKEL_Spine3
-        AttachEntityToEntity(playerPed, carrierPed, bone, 0.0, 0.4, 0.0, 0.0, 0.0, 0.0, false, false, true, false, 2, true)
+        -- Rotation pour mettre le joueur horizontal : 0.0, 90.0, 0.0
+        AttachEntityToEntity(playerPed, carrierPed, bone, 0.15, 0.27, 0.0, 0.0, 90.0, 180.0, false, false, true, false, 2, true)
         TaskPlayAnim(playerPed, Config.Animations.carried.dict, Config.Animations.carried.anim, 8.0, -8.0, -1, Config.Animations.carried.flag, 0, false, false, false)
     end
 end)
@@ -334,7 +337,8 @@ RegisterNetEvent('ox_target:startBeingHostage', function(takerId)
         LoadAnimDict(Config.Animations.hostage.dict)
 
         local bone = GetPedBoneIndex(takerPed, 11816) -- SKEL_Spine3
-        AttachEntityToEntity(playerPed, takerPed, bone, 0.0, 0.45, 0.0, 0.0, 0.0, 0.0, false, false, true, false, 2, true)
+        -- Rotation pour mettre le joueur horizontal
+        AttachEntityToEntity(playerPed, takerPed, bone, 0.11, 0.45, 0.0, 0.0, 90.0, 180.0, false, false, true, false, 2, true)
         TaskPlayAnim(playerPed, Config.Animations.hostage.dict, Config.Animations.hostage.anim, 8.0, -8.0, -1, Config.Animations.hostage.flag, 0, false, false, false)
     end
 end)
@@ -374,36 +378,6 @@ RegisterNetEvent('ox_target:receiveHandshake', function(name)
     })
 end)
 
-RegisterNetEvent('ox_target:showSearchResult', function(playerName, inventory)
-    local elements = {}
-
-    if inventory.money > 0 then
-        table.insert(elements, {label = 'Argent: $' .. inventory.money})
-    end
-
-    if inventory.black_money > 0 then
-        table.insert(elements, {label = 'Argent sale: $' .. inventory.black_money})
-    end
-
-    if #inventory.items > 0 then
-        for _, item in ipairs(inventory.items) do
-            table.insert(elements, {label = item.label .. ' x' .. item.count})
-        end
-    end
-
-    if #elements == 0 then
-        table.insert(elements, {label = 'Rien trouvé'})
-    end
-
-    lib.registerContext({
-        id = 'search_menu',
-        title = 'Fouille: ' .. playerName,
-        options = elements
-    })
-
-    lib.showContext('search_menu')
-end)
-
 RegisterNetEvent('ox_target:showID', function(playerData)
     lib.registerContext({
         id = 'id_menu',
@@ -418,17 +392,6 @@ RegisterNetEvent('ox_target:showID', function(playerData)
     })
 
     lib.showContext('id_menu')
-end)
-
-RegisterNetEvent('ox_target:receiveHandcuff', function(name)
-    local playerPed = PlayerPedId()
-    PlayAnimAndTrack(playerPed, Config.Animations.handcuff.dict, Config.Animations.handcuff.anim, 8.0, -8.0, -1, Config.Animations.handcuff.flag, 0)
-
-    lib.notify({
-        title = 'Menottage',
-        description = 'Vous avez été menotté par ' .. name,
-        type = 'warning'
-    })
 end)
 
 RegisterNetEvent('ox_target:receivePulseCheck', function(pulse)

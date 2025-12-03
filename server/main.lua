@@ -163,48 +163,6 @@ RegisterNetEvent('ox_target:handshake', function(targetId)
     end
 end)
 
--- Fouiller un joueur
-RegisterNetEvent('ox_target:searchPlayer', function(targetId)
-    local source = source
-    local xPlayer = ESX.GetPlayerFromId(source)
-    local xTarget = ESX.GetPlayerFromId(targetId)
-
-    if not xPlayer or not xTarget then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = 'Erreur',
-            description = 'Joueur introuvable',
-            type = 'error'
-        })
-        return
-    end
-
-    -- Récupérer l'inventaire du joueur
-    local targetInventory = {
-        money = xTarget.getMoney(),
-        black_money = xTarget.getAccount('black_money').money,
-        items = {}
-    }
-
-    for _, item in ipairs(xTarget.getInventory()) do
-        if item.count > 0 then
-            table.insert(targetInventory.items, {
-                name = item.name,
-                label = item.label,
-                count = item.count
-            })
-        end
-    end
-
-    TriggerClientEvent('ox_target:showSearchResult', source, xTarget.getName(), targetInventory)
-
-    -- Notifier le joueur fouillé
-    TriggerClientEvent('ox_lib:notify', targetId, {
-        title = 'Fouille',
-        description = 'Vous êtes en train d\'être fouillé par ' .. xPlayer.getName(),
-        type = 'info'
-    })
-end)
-
 -- Demander les papiers
 RegisterNetEvent('ox_target:checkID', function(targetId)
     local source = source
@@ -250,30 +208,6 @@ RegisterNetEvent('ox_target:checkID', function(targetId)
             })
         end
     end)
-end)
-
--- Menotter un joueur
-RegisterNetEvent('ox_target:handcuffPlayer', function(targetId)
-    local source = source
-    local xPlayer = ESX.GetPlayerFromId(source)
-    local xTarget = ESX.GetPlayerFromId(targetId)
-
-    if not xPlayer or not xTarget then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = 'Erreur',
-            description = 'Joueur introuvable',
-            type = 'error'
-        })
-        return
-    end
-
-    TriggerClientEvent('ox_target:receiveHandcuff', targetId, xPlayer.getName())
-
-    TriggerClientEvent('ox_lib:notify', source, {
-        title = 'Menottage',
-        description = 'Vous avez menotté ' .. xTarget.getName(),
-        type = 'success'
-    })
 end)
 
 -- Copier l'animation

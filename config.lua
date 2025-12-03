@@ -52,11 +52,6 @@ Config.Animations = {
         anim = 'handshake_guy_a',
         flag = 48
     },
-    handcuff = {
-        dict = 'mp_arresting',
-        anim = 'idle',
-        flag = 49
-    },
     checkpulse = {
         dict = 'amb@medic@standing@kneel@base',
         anim = 'base',
