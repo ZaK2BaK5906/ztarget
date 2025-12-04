@@ -202,6 +202,26 @@ local function CheckID(data)
     TriggerServerEvent('ox_target:checkID', data.serverId)
 end
 
+-- Menotter
+local function HandcuffPlayer(data)
+    -- Utiliser l'export de p_policejob pour menotter
+    TriggerEvent('p_policejob/tiePlayer')
+end
+
+-- Démenotter
+local function UnhandcuffPlayer(data)
+    local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
+    if targetPlayer ~= -1 then
+        local targetId = GetPlayerServerId(targetPlayer)
+        -- Utiliser l'event p_policejob pour démenotter
+        TriggerEvent('p_policejob:HandCuffs', {
+            type = 'cable_ties',
+            state = false,
+            player = targetId
+        })
+    end
+end
+
 -- Montrer sa pièce d'identité
 local function ShowID(data)
     TriggerServerEvent('p_documents:showDocument', 'idcard')
@@ -641,6 +661,32 @@ CreateThread(function()
             distance = Config.InteractionDistance,
             onSelect = function(data)
                 ShowWeapon()
+            end
+        })
+    end
+
+    -- Menotter
+    if Config.EnableHandcuff then
+        table.insert(options, {
+            name = 'handcuff_player',
+            label = 'Menotter',
+            icon = 'fa-solid fa-handcuffs',
+            distance = Config.InteractionDistance,
+            onSelect = function(data)
+                HandcuffPlayer(data)
+            end
+        })
+    end
+
+    -- Démenotter
+    if Config.EnableUnhandcuff then
+        table.insert(options, {
+            name = 'unhandcuff_player',
+            label = 'Démenotter',
+            icon = 'fa-solid fa-unlock',
+            distance = Config.InteractionDistance,
+            onSelect = function(data)
+                UnhandcuffPlayer(data)
             end
         })
     end

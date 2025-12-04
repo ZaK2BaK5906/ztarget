@@ -17,7 +17,8 @@ Config.EnableGiveItem = false
 Config.EnableHandshake = true
 Config.EnableSearch = true -- Nécessite que la cible ait les mains levées
 Config.EnableCheckID = false
-Config.EnableHandcuff = false
+Config.EnableHandcuff = true
+Config.EnableUnhandcuff = true
 Config.EnableCheckPulse = false
 
 -- Documents (p_documents)
