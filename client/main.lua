@@ -193,8 +193,8 @@ end
 
 -- Fouiller un joueur
 local function SearchPlayer(data)
-    -- Utiliser l'export de p_policejob pour fouiller
-    TriggerEvent('p_policejob/searchPlayer')
+    -- Utiliser l'export ox_inventory pour fouiller
+    exports.ox_inventory:openNearbyInventory()
 end
 
 -- Demander les papiers
@@ -202,18 +202,19 @@ local function CheckID(data)
     TriggerServerEvent('ox_target:checkID', data.serverId)
 end
 
--- Menotter
-local function HandcuffPlayer(data)
-    -- Utiliser l'export de p_policejob pour menotter
-    TriggerEvent('p_policejob/tiePlayer')
+-- Montrer sa pièce d'identité
+local function ShowID(data)
+    TriggerServerEvent('p_documents:showDocument', 'idcard')
 end
 
--- Prendre le pouls
-local function CheckPulse(data)
-    local playerPed = PlayerPedId()
-    PlayAnimAndTrack(playerPed, Config.Animations.checkpulse.dict, Config.Animations.checkpulse.anim, 8.0, -8.0, 3000, Config.Animations.checkpulse.flag, 0)
+-- Montrer son permis de conduire
+local function ShowDriver(data)
+    TriggerServerEvent('p_documents:showDocument', 'driver')
+end
 
-    TriggerServerEvent('ox_target:checkPulse', data.serverId)
+-- Montrer son PPA (Port d'arme)
+local function ShowWeapon(data)
+    TriggerServerEvent('p_documents:showDocument', 'weapon')
 end
 
 -- Events client
@@ -605,53 +606,41 @@ CreateThread(function()
         })
     end
 
-    -- Demander les papiers
-    if Config.EnableCheckID then
+    -- Montrer sa pièce d'identité
+    if Config.EnableShowID then
         table.insert(options, {
-            name = 'check_id',
-            label = 'Demander les papiers',
+            name = 'show_id',
+            label = 'Montrer sa carte d\'identité',
             icon = 'fa-solid fa-id-card',
             distance = Config.InteractionDistance,
             onSelect = function(data)
-                local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
-                if targetPlayer ~= -1 then
-                    local serverId = GetPlayerServerId(targetPlayer)
-                    CheckID({serverId = serverId})
-                end
+                ShowID()
             end
         })
     end
 
-    -- Menotter
-    if Config.EnableHandcuff then
+    -- Montrer son permis de conduire
+    if Config.EnableShowDriver then
         table.insert(options, {
-            name = 'handcuff_player',
-            label = 'Menotter',
-            icon = 'fa-solid fa-handcuffs',
+            name = 'show_driver',
+            label = 'Montrer son permis de conduire',
+            icon = 'fa-solid fa-id-card-clip',
             distance = Config.InteractionDistance,
             onSelect = function(data)
-                local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
-                if targetPlayer ~= -1 then
-                    local serverId = GetPlayerServerId(targetPlayer)
-                    HandcuffPlayer({serverId = serverId})
-                end
+                ShowDriver()
             end
         })
     end
 
-    -- Prendre le pouls
-    if Config.EnableCheckPulse then
+    -- Montrer son PPA
+    if Config.EnableShowWeapon then
         table.insert(options, {
-            name = 'check_pulse',
-            label = 'Prendre le pouls',
-            icon = 'fa-solid fa-heartbeat',
+            name = 'show_weapon',
+            label = 'Montrer son PPA',
+            icon = 'fa-solid fa-gun',
             distance = Config.InteractionDistance,
             onSelect = function(data)
-                local targetPlayer = NetworkGetPlayerIndexFromPed(data.entity)
-                if targetPlayer ~= -1 then
-                    local serverId = GetPlayerServerId(targetPlayer)
-                    CheckPulse({serverId = serverId})
-                end
+                ShowWeapon()
             end
         })
     end

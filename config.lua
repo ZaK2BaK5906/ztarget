@@ -17,8 +17,13 @@ Config.EnableGiveItem = false
 Config.EnableHandshake = true
 Config.EnableSearch = true -- Nécessite que la cible ait les mains levées
 Config.EnableCheckID = false
-Config.EnableHandcuff = true
-Config.EnableCheckPulse = true
+Config.EnableHandcuff = false
+Config.EnableCheckPulse = false
+
+-- Documents (p_documents)
+Config.EnableShowID = true
+Config.EnableShowDriver = true
+Config.EnableShowWeapon = true
 
 -- Animations
 Config.Animations = {
