@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { whitelistApi } from '@/lib/api';
-import type { Whitelist, WhitelistStatus, WhitelistDecision, WhitelistCategory } from '@/types';
+import type { Whitelist } from '@/types';
+import { WhitelistStatus, WhitelistDecision, WhitelistCategory } from '@/types';
 import toast from 'react-hot-toast';
 import { PlusIcon, FunnelIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';

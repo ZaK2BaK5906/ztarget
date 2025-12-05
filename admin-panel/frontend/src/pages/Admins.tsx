@@ -196,7 +196,7 @@ export default function Admins() {
               <div>
                 <p className="text-sm font-medium text-gray-400 mb-2">Permissions</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  {Object.entries(admin.permissions).map(([key, value]) => (
+                  {admin.permissions && Object.entries(admin.permissions).map(([key, value]) => (
                     <div key={key} className="flex items-center gap-1">
                       {value ? (
                         <CheckIcon className="w-4 h-4 text-green-500" />

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, WhitelistDecision, WhitelistStatus } from '@prisma/client';
+import { PrismaClient, WhitelistDecision, WhitelistStatus, WhitelistCategory } from '@prisma/client';
 import { authenticateToken, requirePermission, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();

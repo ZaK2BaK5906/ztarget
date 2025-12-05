@@ -35,7 +35,30 @@ router.get('/', authenticateToken, requirePermission('canViewAdmins'), async (re
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json(admins);
+    // Transformer les données pour regrouper les permissions
+    const formattedAdmins = admins.map(admin => ({
+      id: admin.id,
+      username: admin.username,
+      email: admin.email,
+      isMasterAdmin: admin.isMasterAdmin,
+      isActive: admin.isActive,
+      avatar: admin.avatar,
+      createdAt: admin.createdAt,
+      lastLoginAt: admin.lastLoginAt,
+      _count: admin._count,
+      permissions: {
+        canViewDashboard: admin.canViewDashboard,
+        canViewWhitelists: admin.canViewWhitelists,
+        canViewTemplates: admin.canViewTemplates,
+        canViewAdmins: admin.canViewAdmins,
+        canViewAnalytics: admin.canViewAnalytics,
+        canManageWhitelists: admin.canManageWhitelists,
+        canManageTemplates: admin.canManageTemplates,
+        canManageAdmins: admin.canManageAdmins
+      }
+    }));
+
+    res.json(formattedAdmins);
   } catch (error) {
     console.error('Erreur récupération admins:', error);
     res.status(500).json({ error: 'Erreur serveur' });
