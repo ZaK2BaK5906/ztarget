@@ -4,6 +4,7 @@ const webhooks = {
   entretien: process.env.DISCORD_WEBHOOK_ENTRETIEN,
   validation: process.env.DISCORD_WEBHOOK_VALIDATION,
   refus: process.env.DISCORD_WEBHOOK_REFUS,
+  attente: process.env.DISCORD_WEBHOOK_ATTENTE,
   admin: process.env.DISCORD_WEBHOOK_ADMIN,
   rapport: process.env.DISCORD_WEBHOOK_RAPPORT
 };
@@ -61,6 +62,28 @@ export async function sendWebhook(type: keyof typeof webhooks, data: any) {
 
         if (data.reason) {
           embed.addField('Raison', data.reason, false);
+        }
+        break;
+
+      case 'attente':
+        embed = new MessageBuilder()
+          .setTitle('⏳ Whitelist en Attente')
+          .setColor(0xf39c12)
+          .addField('Candidat', `${data.candidateName} (${data.candidateDiscord})`, false)
+          .addField('Score', `${data.totalScore}/100`, true)
+          .addField('Catégorie', data.category, true)
+          .addField('Admin', data.adminName, true)
+          .addField('Durée', `${Math.floor(data.duration / 60)} min ${data.duration % 60} sec`, true)
+          .setTimestamp();
+
+        if (data.reason) {
+          embed.addField('Raison', data.reason, false);
+        }
+        if (data.reexamDate) {
+          embed.addField('Date de réexamen', new Date(data.reexamDate).toLocaleDateString('fr-FR'), false);
+        }
+        if (data.customMessage) {
+          embed.addField('Message', data.customMessage, false);
         }
         break;
 

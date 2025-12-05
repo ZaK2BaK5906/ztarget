@@ -506,7 +506,15 @@ router.post('/:id/finalize', authenticateToken, requirePermission('canManageWhit
     });
 
     // Webhook Discord
-    const webhookType = decision === 'ACCEPTED' ? 'validation' : 'refus';
+    let webhookType: 'validation' | 'refus' | 'attente';
+    if (decision === 'ACCEPTED') {
+      webhookType = 'validation';
+    } else if (decision === 'REFUSED') {
+      webhookType = 'refus';
+    } else {
+      webhookType = 'attente';
+    }
+
     await sendWebhook(webhookType, {
       type: decision,
       candidateName: `${whitelist.candidateFirstname} ${whitelist.candidateLastname}`,
@@ -518,7 +526,8 @@ router.post('/:id/finalize', authenticateToken, requirePermission('canManageWhit
       rulesScore,
       duration,
       reason: decisionReason,
-      customMessage
+      customMessage,
+      reexamDate
     });
 
     res.json({ message: 'Whitelist finalisée avec succès', whitelist: updatedWhitelist });
