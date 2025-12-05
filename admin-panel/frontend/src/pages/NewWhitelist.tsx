@@ -15,6 +15,7 @@ interface WhitelistFormData {
   candidateLastname: string;
   candidateDiscord: string;
   candidateAge: number;
+  candidateRpHours: number;
   experienceLevel: ExperienceLevel | '';
   category: WhitelistCategory | '';
   adminNotes: string;
@@ -26,12 +27,15 @@ export default function NewWhitelist() {
   const [isLoading, setIsLoading] = useState(false);
   const [whitelistId, setWhitelistId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [discordCheckResult, setDiscordCheckResult] = useState<any>(null);
+  const [discordVerified, setDiscordVerified] = useState(false);
 
   const [formData, setFormData] = useState<WhitelistFormData>({
     candidateFirstname: '',
     candidateLastname: '',
     candidateDiscord: '',
     candidateAge: 18,
+    candidateRpHours: 0,
     experienceLevel: '',
     category: '',
     adminNotes: ''
@@ -44,16 +48,45 @@ export default function NewWhitelist() {
     reexamDate: ''
   });
 
-  // Étape 1: Créer la whitelist et récupérer les questions
-  const handleStep1Submit = async () => {
-    if (!formData.candidateFirstname || !formData.candidateLastname || !formData.candidateDiscord || !formData.experienceLevel || !formData.category) {
-      toast.error('Veuillez remplir tous les champs obligatoires');
+  // Vérifier le Discord
+  const handleCheckDiscord = async () => {
+    if (!formData.candidateDiscord) {
+      toast.error('Veuillez saisir un pseudo Discord');
       return;
     }
 
     // Vérification format Discord
     if (!formData.candidateDiscord.includes('#') && !formData.candidateDiscord.includes('@')) {
       toast.error('Format Discord invalide (exemple: Username#1234 ou @username)');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data } = await whitelistApi.checkDiscord(formData.candidateDiscord);
+      setDiscordCheckResult(data);
+      setDiscordVerified(true);
+
+      if (!data.exists) {
+        toast.success('✅ Aucune whitelist trouvée, vous pouvez continuer');
+      } else {
+        toast.info(data.message);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erreur lors de la vérification');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Étape 1: Créer la whitelist et récupérer les questions
+  const handleStep1Submit = async () => {
+    if (!discordVerified) {
+      toast.error('Veuillez d\'abord vérifier le pseudo Discord');
+      return;
+    }
+    if (!formData.candidateFirstname || !formData.candidateLastname || !formData.candidateDiscord || !formData.experienceLevel || !formData.category) {
+      toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
@@ -269,17 +302,73 @@ export default function NewWhitelist() {
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Discord *
               </label>
-              <input
-                type="text"
-                value={formData.candidateDiscord}
-                onChange={(e) => setFormData({ ...formData, candidateDiscord: e.target.value })}
-                className="input"
-                placeholder="Username#1234 ou @username"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.candidateDiscord}
+                  onChange={(e) => {
+                    setFormData({ ...formData, candidateDiscord: e.target.value });
+                    setDiscordVerified(false);
+                    setDiscordCheckResult(null);
+                  }}
+                  className="input flex-1"
+                  placeholder="Username#1234 ou @username"
+                />
+                <button
+                  type="button"
+                  onClick={handleCheckDiscord}
+                  disabled={isLoading || !formData.candidateDiscord}
+                  className="btn-primary px-6 disabled:opacity-50"
+                >
+                  {isLoading ? 'Vérification...' : 'Vérifier'}
+                </button>
+              </div>
+
+              {/* Résultat de la vérification */}
+              {discordCheckResult && discordCheckResult.exists && (
+                <div className={`mt-3 p-4 rounded-lg border ${
+                  discordCheckResult.isBanned
+                    ? 'bg-red-900/20 border-red-700/50'
+                    : discordCheckResult.status === 'REFUSED_TOO_SOON'
+                    ? 'bg-orange-900/20 border-orange-700/50'
+                    : discordCheckResult.status === 'REFUSED_CAN_RETRY'
+                    ? 'bg-yellow-900/20 border-yellow-700/50'
+                    : discordCheckResult.status === 'ACCEPTED'
+                    ? 'bg-green-900/20 border-green-700/50'
+                    : 'bg-blue-900/20 border-blue-700/50'
+                }`}>
+                  <p className="font-semibold mb-2">{discordCheckResult.message}</p>
+                  {discordCheckResult.latestWhitelist && (
+                    <div className="text-sm space-y-1 mt-2">
+                      <p>Dernière WL: {new Date(discordCheckResult.latestWhitelist.startedAt).toLocaleDateString('fr-FR')}</p>
+                      <p>Score: {discordCheckResult.latestWhitelist.totalScore || 0}/100</p>
+                      <p>Admin: {discordCheckResult.latestWhitelist.admin?.username}</p>
+                      {discordCheckResult.hoursRemaining && (
+                        <p className="text-orange-400 font-semibold">
+                          Délai restant: {discordCheckResult.hoursRemaining}h
+                        </p>
+                      )}
+                      <button
+                        onClick={() => navigate(`/whitelists/${discordCheckResult.latestWhitelist.id}`)}
+                        className="mt-2 btn-secondary text-sm"
+                      >
+                        Voir la whitelist →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {discordVerified && !discordCheckResult?.exists && (
+                <div className="mt-2 flex items-center gap-2 text-green-500 bg-green-900/20 border border-green-700/50 rounded-lg p-3">
+                  <CheckCircleIcon className="w-5 h-5" />
+                  <span className="text-sm font-semibold">Discord vérifié ✓</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -300,6 +389,20 @@ export default function NewWhitelist() {
                   <span className="text-sm font-semibold">ATTENTION: Candidat mineur !</span>
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Nombre d'heures RP
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.candidateRpHours}
+                onChange={(e) => setFormData({ ...formData, candidateRpHours: Number(e.target.value) })}
+                className="input"
+                placeholder="Ex: 500"
+              />
             </div>
 
             <div>

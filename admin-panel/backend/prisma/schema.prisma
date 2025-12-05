@@ -54,8 +54,10 @@ model Whitelist {
   candidateLastname  String
   candidateDiscord   String
   candidateAge       Int
+  candidateRpHours   Int?              // Nombre d'heures RP
   experienceLevel    ExperienceLevel
   category           WhitelistCategory
+  isBanned           Boolean           @default(false) // Si le joueur est banni
 
   // Informations entretien
   status             WhitelistStatus   @default(PENDING)

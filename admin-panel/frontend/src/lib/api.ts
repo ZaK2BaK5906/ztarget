@@ -57,7 +57,9 @@ export const adminApi = {
 export const whitelistApi = {
   getAll: (params?: any) => api.get<{ whitelists: Whitelist[]; pagination: any }>('/whitelists', { params }),
   getById: (id: string) => api.get<Whitelist>(`/whitelists/${id}`),
+  checkDiscord: (discord: string) => api.get(`/whitelists/check-discord/${encodeURIComponent(discord)}`),
   create: (data: Partial<Whitelist>) => api.post('/whitelists', data),
+  update: (id: string, data: Partial<Whitelist>) => api.put(`/whitelists/${id}`, data),
   updateAnswer: (whitelistId: string, answerId: string, data: any) =>
     api.put(`/whitelists/${whitelistId}/answers/${answerId}`, data),
   finalize: (id: string, data: any) => api.post(`/whitelists/${id}/finalize`, data),

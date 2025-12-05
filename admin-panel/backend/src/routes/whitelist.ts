@@ -134,6 +134,116 @@ router.get('/:id', authenticateToken, requirePermission('canViewWhitelists'), as
   }
 });
 
+// Vérifier si un Discord a déjà des whitelists
+router.get('/check-discord/:discord', authenticateToken, requirePermission('canManageWhitelists'), async (req: AuthRequest, res) => {
+  try {
+    const { discord } = req.params;
+
+    // Rechercher toutes les whitelists pour ce Discord
+    const whitelists = await prisma.whitelist.findMany({
+      where: {
+        candidateDiscord: {
+          equals: discord,
+          mode: 'insensitive'
+        }
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            username: true
+          }
+        }
+      },
+      orderBy: { startedAt: 'desc' }
+    });
+
+    if (whitelists.length === 0) {
+      return res.json({
+        exists: false,
+        message: 'Aucune whitelist trouvée pour ce Discord'
+      });
+    }
+
+    // Trouver la whitelist la plus récente
+    const latestWhitelist = whitelists[0];
+    const now = new Date();
+    const timeSinceLastWL = now.getTime() - new Date(latestWhitelist.startedAt).getTime();
+    const hoursSinceLastWL = timeSinceLastWL / (1000 * 60 * 60);
+
+    // Vérifier si le joueur est banni
+    if (latestWhitelist.isBanned) {
+      return res.json({
+        exists: true,
+        isBanned: true,
+        latestWhitelist,
+        allWhitelists: whitelists,
+        message: '⚠️ ATTENTION : Ce joueur est BANNI !'
+      });
+    }
+
+    // Vérifier le statut de la dernière WL
+    if (latestWhitelist.status === WhitelistStatus.COMPLETED) {
+      if (latestWhitelist.decision === WhitelistDecision.REFUSED) {
+        // WL refusée
+        if (hoursSinceLastWL < 24) {
+          return res.json({
+            exists: true,
+            status: 'REFUSED_TOO_SOON',
+            latestWhitelist,
+            allWhitelists: whitelists,
+            hoursRemaining: Math.ceil(24 - hoursSinceLastWL),
+            message: `❌ Whitelist refusée il y a ${Math.floor(hoursSinceLastWL)}h. Délai de 24h non écoulé.`
+          });
+        } else {
+          // Peut reprendre l'entretien
+          return res.json({
+            exists: true,
+            status: 'REFUSED_CAN_RETRY',
+            latestWhitelist,
+            allWhitelists: whitelists,
+            message: '✅ Le délai de 24h est écoulé. Vous pouvez reprendre l\'entretien sur les points où le candidat a échoué.'
+          });
+        }
+      } else if (latestWhitelist.decision === WhitelistDecision.ACCEPTED) {
+        return res.json({
+          exists: true,
+          status: 'ACCEPTED',
+          latestWhitelist,
+          allWhitelists: whitelists,
+          message: '✅ Ce joueur a déjà une whitelist ACCEPTÉE.'
+        });
+      } else if (latestWhitelist.decision === WhitelistDecision.WAITING) {
+        return res.json({
+          exists: true,
+          status: 'WAITING',
+          latestWhitelist,
+          allWhitelists: whitelists,
+          message: '⏳ Une whitelist est EN ATTENTE pour ce joueur.'
+        });
+      }
+    } else {
+      // WL en cours ou en attente
+      return res.json({
+        exists: true,
+        status: 'IN_PROGRESS',
+        latestWhitelist,
+        allWhitelists: whitelists,
+        message: '⚠️ Une whitelist est déjà EN COURS pour ce joueur.'
+      });
+    }
+
+    res.json({
+      exists: true,
+      latestWhitelist,
+      allWhitelists: whitelists
+    });
+  } catch (error) {
+    console.error('Erreur vérification Discord:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Créer une nouvelle whitelist (démarrer un entretien)
 router.post('/', authenticateToken, requirePermission('canManageWhitelists'), async (req: AuthRequest, res) => {
   try {
@@ -142,9 +252,11 @@ router.post('/', authenticateToken, requirePermission('canManageWhitelists'), as
       candidateLastname,
       candidateDiscord,
       candidateAge,
+      candidateRpHours,
       experienceLevel,
       category,
-      adminNotes
+      adminNotes,
+      isBanned
     } = req.body;
 
     if (!candidateFirstname || !candidateLastname || !candidateDiscord || !candidateAge || !experienceLevel || !category) {
@@ -205,9 +317,11 @@ router.post('/', authenticateToken, requirePermission('canManageWhitelists'), as
         candidateLastname,
         candidateDiscord,
         candidateAge: Number(candidateAge),
+        candidateRpHours: candidateRpHours ? Number(candidateRpHours) : undefined,
         experienceLevel: experienceLevel as ExperienceLevel,
         category: category as WhitelistCategory,
         adminNotes,
+        isBanned: isBanned || false,
         adminId: req.admin!.id,
         status: WhitelistStatus.IN_PROGRESS,
         answers: {
@@ -251,6 +365,54 @@ router.post('/', authenticateToken, requirePermission('canManageWhitelists'), as
     res.status(201).json({ message: 'Entretien démarré avec succès', whitelist });
   } catch (error) {
     console.error('Erreur création whitelist:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Modifier une whitelist
+router.put('/:id', authenticateToken, requirePermission('canManageWhitelists'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      candidateFirstname,
+      candidateLastname,
+      candidateDiscord,
+      candidateAge,
+      candidateRpHours,
+      experienceLevel,
+      category,
+      adminNotes,
+      isBanned
+    } = req.body;
+
+    const whitelist = await prisma.whitelist.update({
+      where: { id },
+      data: {
+        candidateFirstname,
+        candidateLastname,
+        candidateDiscord,
+        candidateAge: candidateAge ? Number(candidateAge) : undefined,
+        candidateRpHours: candidateRpHours ? Number(candidateRpHours) : undefined,
+        experienceLevel: experienceLevel as ExperienceLevel,
+        category: category as WhitelistCategory,
+        adminNotes,
+        isBanned: isBanned !== undefined ? isBanned : undefined
+      }
+    });
+
+    // Log d'activité
+    await prisma.activityLog.create({
+      data: {
+        adminId: req.admin!.id,
+        whitelistId: id,
+        action: 'WHITELIST_UPDATED',
+        details: `Whitelist modifiée pour ${candidateFirstname} ${candidateLastname}`
+      }
+    });
+
+    res.json({ message: 'Whitelist modifiée avec succès', whitelist });
+  } catch (error) {
+    console.error('Erreur modification whitelist:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

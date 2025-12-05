@@ -60,8 +60,10 @@ export interface Whitelist {
   candidateLastname: string;
   candidateDiscord: string;
   candidateAge: number;
+  candidateRpHours?: number;
   experienceLevel: ExperienceLevel;
   category: WhitelistCategory;
+  isBanned?: boolean;
   status: WhitelistStatus;
   startedAt: string;
   endedAt?: string;

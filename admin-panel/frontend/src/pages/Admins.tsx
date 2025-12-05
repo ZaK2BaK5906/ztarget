@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { PlusIcon, PencilIcon, TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { translatePermission } from '@/utils/permissions';
 
 export default function Admins() {
   const { admin: currentAdmin } = useAuthStore();
@@ -204,7 +205,7 @@ export default function Admins() {
                         <div className="w-4 h-4" />
                       )}
                       <span className={value ? 'text-gray-300' : 'text-gray-600'}>
-                        {key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
+                        {translatePermission(key)}
                       </span>
                     </div>
                   ))}
@@ -297,7 +298,7 @@ export default function Admins() {
                         className="w-4 h-4 rounded bg-gray-700 border-gray-600"
                       />
                       <span className="text-sm">
-                        {key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
+                        {translatePermission(key)}
                       </span>
                     </label>
                   ))}
