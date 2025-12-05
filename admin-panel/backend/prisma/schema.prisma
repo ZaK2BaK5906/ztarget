@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle Admin - Utilisateurs du panel
+model Admin {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String   @unique
+  password      String
+  isMasterAdmin Boolean  @default(false)
+  isActive      Boolean  @default(true)
+
+  // Permissions granulaires
+  canViewDashboard    Boolean @default(true)
+  canViewWhitelists   Boolean @default(true)
+  canViewTemplates    Boolean @default(false)
+  canViewAdmins       Boolean @default(false)
+  canViewAnalytics    Boolean @default(true)
+  canManageWhitelists Boolean @default(true)
+  canManageTemplates  Boolean @default(false)
+  canManageAdmins     Boolean @default(false)
+
+  avatar        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+  createdById   String?
+  createdBy     Admin?   @relation("AdminCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAdmins Admin[]  @relation("AdminCreator")
+
+  // Relations
+  whitelists        Whitelist[]
+  comments          Comment[]
+  activityLogs      ActivityLog[]
+  createdTemplates  Template[]
+
+  @@index([email])
+  @@index([username])
+  @@map("admins")
+}
+
+// Modèle Whitelist - Entretiens de whitelist
+model Whitelist {
+  id                String            @id @default(uuid())
+
+  // Informations candidat
+  candidateFirstname String
+  candidateLastname  String
+  candidateDiscord   String
+  candidateAge       Int
+  experienceLevel    ExperienceLevel
+  category           WhitelistCategory
+
+  // Informations entretien
+  status             WhitelistStatus   @default(PENDING)
+  startedAt          DateTime          @default(now())
+  endedAt            DateTime?
+  duration           Int?              // en secondes
+
+  // Scores
+  totalScore         Float?            @default(0)
+  scenarioScore      Float?            @default(0) // /30
+  rulesScore         Float?            @default(0) // /70
+
+  // Décision
+  decision           WhitelistDecision?
+  decisionReason     String?           @db.Text
+  customMessage      String?           @db.Text
+  reexamDate         DateTime?
+
+  // Notes admin
+  adminNotes         String?           @db.Text
+
+  // Traçabilité
+  adminId            String
+  admin              Admin             @relation(fields: [adminId], references: [id])
+
+  // Relations
+  answers            Answer[]
+  comments           Comment[]
+  activityLogs       ActivityLog[]
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([adminId])
+  @@index([candidateDiscord])
+  @@index([startedAt])
+  @@map("whitelists")
+}
+
+// Modèle Template - Templates de questions/scénarios
+model Template {
+  id          String         @id @default(uuid())
+  type        TemplateType
+  category    WhitelistCategory?
+  question    String         @db.Text
+  answer      String?        @db.Text
+  isActive    Boolean        @default(true)
+  orderIndex  Int?           // Pour l'ordre d'affichage
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  createdById String
+  createdBy   Admin          @relation(fields: [createdById], references: [id])
+
+  // Relations
+  answers     Answer[]
+
+  @@index([type])
+  @@index([category])
+  @@index([isActive])
+  @@map("templates")
+}
+
+// Modèle Answer - Réponses aux questions
+model Answer {
+  id            String    @id @default(uuid())
+  whitelistId   String
+  whitelist     Whitelist @relation(fields: [whitelistId], references: [id], onDelete: Cascade)
+  templateId    String
+  template      Template  @relation(fields: [templateId], references: [id])
+
+  candidateAnswer String? @db.Text
+  isCorrect       Boolean?
+  score           Float?
+  notes           String? @db.Text
+
+  createdAt     DateTime @default(now())
+
+  @@index([whitelistId])
+  @@index([templateId])
+  @@map("answers")
+}
+
+// Modèle Comment - Commentaires entre admins
+model Comment {
+  id          String    @id @default(uuid())
+  whitelistId String
+  whitelist   Whitelist @relation(fields: [whitelistId], references: [id], onDelete: Cascade)
+  adminId     String
+  admin       Admin     @relation(fields: [adminId], references: [id])
+
+  content     String    @db.Text
+  mentions    String?   @db.Text // JSON array of admin IDs
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([whitelistId])
+  @@index([adminId])
+  @@map("comments")
+}
+
+// Modèle ActivityLog - Logs d'activité
+model ActivityLog {
+  id          String    @id @default(uuid())
+  adminId     String
+  admin       Admin     @relation(fields: [adminId], references: [id])
+  whitelistId String?
+  whitelist   Whitelist? @relation(fields: [whitelistId], references: [id], onDelete: Cascade)
+
+  action      String
+  details     String?   @db.Text
+  ipAddress   String?
+
+  createdAt   DateTime  @default(now())
+
+  @@index([adminId])
+  @@index([whitelistId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// Énumérations
+enum ExperienceLevel {
+  DEBUTANT
+  INTERMEDIAIRE
+  EXPERIMENTE
+}
+
+enum WhitelistCategory {
+  LEGAL
+  ILLEGAL
+}
+
+enum WhitelistStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum WhitelistDecision {
+  ACCEPTED
+  REFUSED
+  WAITING
+}
+
+enum TemplateType {
+  MANDATORY_QUESTION    // 3 questions obligatoires
+  SCENARIO             // Scénarios RP
+  RULES_QUESTION       // Questions de règlement
+  LEXICON              // Lexiques
+}
