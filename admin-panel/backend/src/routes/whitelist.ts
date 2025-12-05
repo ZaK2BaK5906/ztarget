@@ -137,15 +137,14 @@ router.get('/:id', authenticateToken, requirePermission('canViewWhitelists'), as
 // Vérifier si un Discord a déjà des whitelists
 router.get('/check-discord/:discord', authenticateToken, requirePermission('canManageWhitelists'), async (req: AuthRequest, res) => {
   try {
-    const { discord } = req.params;
+    const discord = decodeURIComponent(req.params.discord).trim();
 
-    // Rechercher toutes les whitelists pour ce Discord
+    console.log('🔍 Vérification Discord:', discord);
+
+    // Rechercher toutes les whitelists pour ce Discord (case-insensitive via LOWER)
     const whitelists = await prisma.whitelist.findMany({
       where: {
-        candidateDiscord: {
-          equals: discord,
-          mode: 'insensitive'
-        }
+        candidateDiscord: discord
       },
       include: {
         admin: {
