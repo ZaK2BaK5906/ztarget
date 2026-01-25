@@ -9,6 +9,12 @@ Config.AlertDuration = 15000
 -- Son de l'alerte (true = activer, false = desactiver)
 Config.AlertSound = true
 
+-- Touches pour accepter/refuser les alertes
+Config.Keys = {
+    accept = 246,   -- Y par defaut
+    refuse = 303    -- X par defaut (U en azerty)
+}
+
 -- Couleurs des blips par service
 Config.BlipColors = {
     police = 3,     -- Bleu
@@ -23,6 +29,14 @@ Config.BlipSprites = {
     sheriff = 477,  -- Badge sheriff
     ems = 61,       -- Ambulance
     custom = 1      -- Cercle standard
+}
+
+-- Couleurs RGB des alertes par service (pour l'affichage)
+Config.AlertColors = {
+    police = {r = 52, g = 152, b = 219},    -- Bleu
+    sheriff = {r = 243, g = 156, b = 18},   -- Orange
+    ems = {r = 231, g = 76, b = 60},        -- Rouge
+    custom = {r = 155, g = 89, b = 182}     -- Violet
 }
 
 -- Configuration des alertes par defaut

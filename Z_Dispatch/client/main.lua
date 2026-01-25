@@ -1,9 +1,12 @@
 -- Z_Dispatch Client
 -- Systeme de dispatch pour alertes EMS, Police et Sheriff
+-- Notification custom sans bloquer le joueur
 
 local activeAlerts = {}
 local activeBlips = {}
 local alertIdCounter = 0
+local pendingAlerts = {}
+local currentAlert = nil
 
 -- Fonction de debug
 local function DebugLog(message)
@@ -52,78 +55,196 @@ local function RemoveAlertBlip(alertId)
     end
 end
 
--- Afficher l'alerte avec ox_lib
-local function ShowAlert(alertData)
+-- Dessiner du texte a l'ecran
+local function DrawText3D(text, x, y, scale, r, g, b, a)
+    SetTextFont(4)
+    SetTextProportional(false)
+    SetTextScale(scale, scale)
+    SetTextColour(r, g, b, a)
+    SetTextDropshadow(0, 0, 0, 0, 255)
+    SetTextEdge(2, 0, 0, 0, 150)
+    SetTextDropShadow()
+    SetTextOutline()
+    SetTextRightJustify(true)
+    SetTextWrap(0.0, x)
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayText(x, y)
+end
+
+-- Dessiner un rectangle
+local function DrawRect2D(x, y, width, height, r, g, b, a)
+    DrawRect(x, y, width, height, r, g, b, a)
+end
+
+-- Afficher la notification custom en haut a droite
+local function DisplayAlertNotification(alertData, timeRemaining)
+    local alertConfig = Config.DefaultAlerts[alertData.type] or Config.DefaultAlerts.custom
+    local colors = Config.AlertColors[alertData.type] or Config.AlertColors.custom
+
+    -- Position en haut a droite
+    local baseX = 0.85
+    local baseY = 0.12
+    local width = 0.25
+    local height = 0.14
+
+    -- Fond semi-transparent
+    DrawRect2D(baseX, baseY, width, height, 0, 0, 0, 180)
+
+    -- Barre de couleur en haut
+    DrawRect2D(baseX, baseY - height/2 + 0.008, width, 0.015, colors.r, colors.g, colors.b, 255)
+
+    -- Titre de l'alerte
+    DrawText3D(alertConfig.title, baseX + width/2 - 0.01, baseY - height/2 + 0.02, 0.45, colors.r, colors.g, colors.b, 255)
+
+    -- Message
+    local message = alertData.message or 'Alerte en cours'
+    DrawText3D(message, baseX + width/2 - 0.01, baseY - height/2 + 0.05, 0.35, 255, 255, 255, 255)
+
+    -- Lieu
+    if alertData.street then
+        DrawText3D('~b~Lieu: ~w~' .. alertData.street, baseX + width/2 - 0.01, baseY - height/2 + 0.075, 0.3, 255, 255, 255, 255)
+    end
+
+    -- Info supplementaire
+    if alertData.info then
+        DrawText3D('~y~Info: ~w~' .. alertData.info, baseX + width/2 - 0.01, baseY - height/2 + 0.095, 0.3, 255, 255, 255, 255)
+    end
+
+    -- Instructions touches
+    DrawText3D('~g~[Y] Accepter~w~  |  ~r~[X] Refuser', baseX + width/2 - 0.01, baseY + height/2 - 0.025, 0.3, 255, 255, 255, 255)
+
+    -- Barre de temps restant
+    local timePercent = timeRemaining / Config.AlertDuration
+    local barWidth = width * 0.9 * timePercent
+    local barX = baseX - (width * 0.9)/2 + barWidth/2
+    DrawRect2D(baseX, baseY + height/2 - 0.008, width * 0.9, 0.008, 50, 50, 50, 200)
+    DrawRect2D(barX, baseY + height/2 - 0.008, barWidth, 0.008, colors.r, colors.g, colors.b, 255)
+end
+
+-- Accepter l'alerte actuelle
+local function AcceptAlert()
+    if not currentAlert then return end
+
+    local alertId = currentAlert.id
+    local alertData = currentAlert.data
+    local alertConfig = Config.DefaultAlerts[alertData.type] or Config.DefaultAlerts.custom
+
+    DebugLog('Alerte acceptee - ID: ' .. alertId)
+
+    -- Creer le blip GPS
+    local blip = CreateAlertBlip(alertData.coords, alertData.type, alertConfig.title)
+    activeBlips[alertId] = blip
+    activeAlerts[alertId] = alertData
+
+    -- Notification de confirmation
+    PlaySoundFrontend(-1, 'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+
+    -- Notifier le serveur
+    TriggerServerEvent('Z_Dispatch:alertAccepted', alertId, alertData)
+
+    -- Fermer l'alerte
+    currentAlert = nil
+
+    -- Passer a l'alerte suivante si disponible
+    if #pendingAlerts > 0 then
+        currentAlert = table.remove(pendingAlerts, 1)
+        currentAlert.startTime = GetGameTimer()
+        PlayAlertSound()
+    end
+
+    return alertId
+end
+
+-- Refuser l'alerte actuelle
+local function RefuseAlert()
+    if not currentAlert then return end
+
+    local alertId = currentAlert.id
+    local alertData = currentAlert.data
+
+    DebugLog('Alerte refusee - ID: ' .. alertId)
+
+    -- Son de refus
+    PlaySoundFrontend(-1, 'CANCEL', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+
+    -- Notifier le serveur
+    TriggerServerEvent('Z_Dispatch:alertRefused', alertId, alertData)
+
+    -- Fermer l'alerte
+    currentAlert = nil
+
+    -- Passer a l'alerte suivante si disponible
+    if #pendingAlerts > 0 then
+        currentAlert = table.remove(pendingAlerts, 1)
+        currentAlert.startTime = GetGameTimer()
+        PlayAlertSound()
+    end
+end
+
+-- Ajouter une nouvelle alerte
+local function AddAlert(alertData)
     alertIdCounter = alertIdCounter + 1
     local alertId = alertIdCounter
 
-    activeAlerts[alertId] = alertData
-
     DebugLog('Nouvelle alerte recue - ID: ' .. alertId .. ' Type: ' .. alertData.type)
 
-    PlayAlertSound()
+    local alert = {
+        id = alertId,
+        data = alertData,
+        startTime = GetGameTimer()
+    }
 
-    local alertConfig = Config.DefaultAlerts[alertData.type] or Config.DefaultAlerts.custom
-
-    -- Construire le message de l'alerte
-    local description = alertData.message or 'Alerte en cours'
-    if alertData.street then
-        description = description .. '\n**Lieu:** ' .. alertData.street
-    end
-    if alertData.info then
-        description = description .. '\n**Info:** ' .. alertData.info
-    end
-
-    -- Afficher la notification avec boutons via alertDialog
-    local alert = lib.alertDialog({
-        header = alertConfig.title,
-        content = description,
-        centered = true,
-        cancel = true,
-        size = 'md',
-        labels = {
-            confirm = 'Accepter',
-            cancel = 'Refuser'
-        }
-    })
-
-    if alert == 'confirm' then
-        -- Accepter l'alerte : creer le blip GPS
-        DebugLog('Alerte acceptee - ID: ' .. alertId)
-
-        local blip = CreateAlertBlip(alertData.coords, alertData.type, alertConfig.title)
-        activeBlips[alertId] = blip
-
-        lib.notify({
-            title = 'Dispatch',
-            description = 'GPS active - En route vers l\'intervention',
-            type = 'success',
-            duration = 5000
-        })
-
-        -- Notifier le serveur
-        TriggerServerEvent('Z_Dispatch:alertAccepted', alertId, alertData)
-
-        return alertId
+    -- Si pas d'alerte en cours, afficher celle-ci
+    if not currentAlert then
+        currentAlert = alert
+        PlayAlertSound()
     else
-        -- Refuser l'alerte : ne pas creer de GPS
-        DebugLog('Alerte refusee - ID: ' .. alertId)
-
-        activeAlerts[alertId] = nil
-
-        lib.notify({
-            title = 'Dispatch',
-            description = 'Alerte refusee',
-            type = 'error',
-            duration = 3000
-        })
-
-        -- Notifier le serveur
-        TriggerServerEvent('Z_Dispatch:alertRefused', alertId, alertData)
-
-        return nil
+        -- Sinon ajouter a la file d'attente
+        table.insert(pendingAlerts, alert)
+        DebugLog('Alerte ajoutee a la file d\'attente (position: ' .. #pendingAlerts .. ')')
     end
+
+    return alertId
 end
+
+-- Thread principal pour l'affichage et la gestion des touches
+CreateThread(function()
+    while true do
+        if currentAlert then
+            local timeElapsed = GetGameTimer() - currentAlert.startTime
+            local timeRemaining = Config.AlertDuration - timeElapsed
+
+            if timeRemaining <= 0 then
+                -- Alerte expiree
+                DebugLog('Alerte expiree - ID: ' .. currentAlert.id)
+                TriggerServerEvent('Z_Dispatch:alertExpired', currentAlert.id, currentAlert.data)
+                currentAlert = nil
+
+                -- Passer a l'alerte suivante
+                if #pendingAlerts > 0 then
+                    currentAlert = table.remove(pendingAlerts, 1)
+                    currentAlert.startTime = GetGameTimer()
+                    PlayAlertSound()
+                end
+            else
+                -- Afficher la notification
+                DisplayAlertNotification(currentAlert.data, timeRemaining)
+
+                -- Gerer les touches
+                if IsControlJustPressed(0, Config.Keys.accept) then -- Y
+                    AcceptAlert()
+                elseif IsControlJustPressed(0, Config.Keys.refuse) then -- X
+                    RefuseAlert()
+                end
+            end
+
+            Wait(0)
+        else
+            Wait(500)
+        end
+    end
+end)
 
 -- Terminer une alerte (supprimer le GPS)
 local function EndAlert(alertId)
@@ -131,14 +252,6 @@ local function EndAlert(alertId)
         RemoveAlertBlip(alertId)
         activeAlerts[alertId] = nil
         DebugLog('Alerte terminee - ID: ' .. alertId)
-
-        lib.notify({
-            title = 'Dispatch',
-            description = 'Intervention terminee - GPS desactive',
-            type = 'info',
-            duration = 3000
-        })
-
         return true
     end
     return false
@@ -151,6 +264,8 @@ local function ClearAllAlerts()
     end
     activeAlerts = {}
     activeBlips = {}
+    currentAlert = nil
+    pendingAlerts = {}
     DebugLog('Toutes les alertes ont ete supprimees')
 end
 
@@ -274,6 +389,11 @@ local function GetActiveAlerts()
     return activeAlerts
 end
 
+-- Export: Obtenir le nombre d'alertes en attente
+local function GetPendingAlertsCount()
+    return #pendingAlerts
+end
+
 -- Enregistrement des exports
 exports('SendPoliceAlert', SendPoliceAlert)
 exports('SendSheriffAlert', SendSheriffAlert)
@@ -283,6 +403,7 @@ exports('SendAllServicesAlert', SendAllServicesAlert)
 exports('FinishAlert', FinishAlert)
 exports('ClearAlerts', ClearAlerts)
 exports('GetActiveAlerts', GetActiveAlerts)
+exports('GetPendingAlertsCount', GetPendingAlertsCount)
 
 -- ============================================
 -- EVENTS - Reception des alertes
@@ -290,7 +411,7 @@ exports('GetActiveAlerts', GetActiveAlerts)
 
 RegisterNetEvent('Z_Dispatch:receiveAlert', function(alertData)
     DebugLog('Event receiveAlert recu')
-    ShowAlert(alertData)
+    AddAlert(alertData)
 end)
 
 RegisterNetEvent('Z_Dispatch:forceEndAlert', function(alertId)
@@ -333,11 +454,7 @@ if Config.Debug then
     -- Commande pour terminer toutes les alertes
     RegisterCommand('clearalerts', function()
         ClearAllAlerts()
-        lib.notify({
-            title = 'Dispatch',
-            description = 'Toutes les alertes ont ete supprimees',
-            type = 'info'
-        })
+        DebugLog('Toutes les alertes supprimees via commande')
     end, false)
 
     -- Commande pour tester alerte a tous les services
@@ -345,6 +462,12 @@ if Config.Debug then
         local coords = GetEntityCoords(PlayerPedId())
         SendAllServicesAlert('Alerte generale de test', coords, 'Tous les services requis')
         DebugLog('Commande test all services executee')
+    end, false)
+
+    -- Commande pour voir les alertes en attente
+    RegisterCommand('pendingalerts', function()
+        print('[Z_Dispatch] Alertes en attente: ' .. #pendingAlerts)
+        print('[Z_Dispatch] Alertes actives (GPS): ' .. #activeAlerts)
     end, false)
 
     DebugLog('Commandes de test enregistrees')
