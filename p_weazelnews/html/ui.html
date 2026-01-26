@@ -6,6 +6,7 @@
     <title>Weazel News</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Playfair+Display:wght@700;900&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <!-- OVERLAY CAMERA LIVE -->
@@ -40,9 +41,9 @@
         </div>
     </div>
 
-    <!-- EDITEUR D'ARTICLES -->
+    <!-- EDITEUR D'ARTICLES AMELIORE -->
     <div id="article-writer" class="hidden">
-        <div class="writer-container">
+        <div class="writer-container large">
             <div class="writer-header">
                 <div class="writer-logo">
                     <span class="logo-text">WEAZEL</span>
@@ -52,37 +53,98 @@
                 <button class="close-btn" onclick="closeWriter()">&times;</button>
             </div>
             <div class="writer-body">
-                <div class="form-group">
-                    <label for="article-title">Titre de l'article</label>
-                    <input type="text" id="article-title" placeholder="Entrez un titre accrocheur..." maxlength="200">
+                <div class="form-row">
+                    <div class="form-group flex-2">
+                        <label for="article-title">Titre de l'article</label>
+                        <input type="text" id="article-title" placeholder="Titre principal accrocheur..." maxlength="200">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="article-category">Categorie</label>
+                        <select id="article-category"></select>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="article-category">Categorie</label>
-                    <select id="article-category">
-                        <option value="Actualites">Actualites</option>
-                        <option value="Politique">Politique</option>
-                        <option value="Economie">Economie</option>
-                        <option value="Sport">Sport</option>
-                        <option value="Faits Divers">Faits Divers</option>
-                        <option value="Culture">Culture</option>
-                        <option value="Meteo">Meteo</option>
-                        <option value="Interview">Interview</option>
-                    </select>
+                    <label for="article-subtitle">Sous-titre / Chapeau (optionnel)</label>
+                    <input type="text" id="article-subtitle" placeholder="Resume ou accroche de l'article..." maxlength="255">
                 </div>
                 <div class="form-group">
-                    <label for="article-content">Contenu de l'article</label>
-                    <textarea id="article-content" placeholder="Redigez votre article ici..." rows="12"></textarea>
-                    <div class="char-count"><span id="char-count">0</span> / 5000 caracteres</div>
+                    <label>Contenu de l'article</label>
+                    <div class="editor-toolbar">
+                        <button type="button" onclick="insertImage()" title="Ajouter une image"><i class="fas fa-image"></i></button>
+                        <button type="button" onclick="insertSeparator()" title="Separateur"><i class="fas fa-minus"></i></button>
+                        <button type="button" onclick="insertQuote()" title="Citation"><i class="fas fa-quote-left"></i></button>
+                        <button type="button" onclick="insertSubtitle()" title="Sous-titre"><i class="fas fa-heading"></i></button>
+                        <span class="toolbar-separator"></span>
+                        <span class="toolbar-hint">Images: [IMG:url] | Separateur: --- | Citation: [QUOTE]texte[/QUOTE]</span>
+                    </div>
+                    <textarea id="article-content" placeholder="Redigez votre article ici...
+
+Syntaxe disponible:
+- Images: [IMG:https://i.ibb.co/votre-image.jpg]
+- Separateur: ---
+- Citation: [QUOTE]Texte cite[/QUOTE]
+- Sous-titre: [H2]Titre de section[/H2]" rows="14"></textarea>
+                    <div class="char-count"><span id="char-count">0</span> / 10000 caracteres</div>
+                </div>
+                <div class="form-group">
+                    <label>Images de l'article (URLs)</label>
+                    <div class="images-manager" id="images-manager">
+                        <div class="images-list" id="images-list"></div>
+                        <button type="button" class="btn btn-small" onclick="addImageUrl()"><i class="fas fa-plus"></i> Ajouter une image</button>
+                    </div>
                 </div>
                 <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="saveDraft()"><i class="fas fa-save"></i> Brouillon</button>
                     <button class="btn btn-cancel" onclick="closeWriter()">Annuler</button>
-                    <button class="btn btn-publish" onclick="publishArticle()">Publier l'article</button>
+                    <button class="btn btn-publish" onclick="publishArticle()"><i class="fas fa-paper-plane"></i> Publier</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- LECTEUR DE JOURNAL -->
+    <!-- EDITEUR DE NOTES -->
+    <div id="note-writer" class="hidden">
+        <div class="writer-container">
+            <div class="writer-header note-header">
+                <i class="fas fa-sticky-note header-icon"></i>
+                <h2>Prendre une Note</h2>
+                <button class="close-btn" onclick="closeNoteWriter()">&times;</button>
+            </div>
+            <div class="writer-body">
+                <div class="form-group">
+                    <label for="note-title">Titre de la note</label>
+                    <input type="text" id="note-title" placeholder="Ex: Interview M. Dupont, Accident autoroute..." maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="note-content">Contenu</label>
+                    <textarea id="note-content" placeholder="Notez vos observations, temoignages, informations importantes..." rows="12"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-cancel" onclick="closeNoteWriter()">Annuler</button>
+                    <button class="btn btn-publish" onclick="saveNote()"><i class="fas fa-save"></i> Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LECTEUR DE NOTES -->
+    <div id="note-reader" class="hidden">
+        <div class="note-container">
+            <div class="note-paper">
+                <div class="note-header-paper">
+                    <span class="note-date" id="note-date"></span>
+                    <button class="close-btn dark" onclick="closeNoteReader()">&times;</button>
+                </div>
+                <h2 class="note-title" id="note-title-display"></h2>
+                <div class="note-content" id="note-content-display"></div>
+                <div class="note-footer">
+                    <span class="key-hint">[ECHAP] Fermer</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LECTEUR DE JOURNAL AMELIORE -->
     <div id="newspaper-reader" class="hidden">
         <div class="newspaper-container">
             <div class="newspaper">
@@ -92,32 +154,119 @@
                         <span class="title-weazel">WEAZEL</span>
                         <span class="title-news">NEWS</span>
                     </div>
-                    <div class="newspaper-price">$50 | Los Santos</div>
+                    <div class="newspaper-edition" id="newspaper-edition">$50 | Los Santos</div>
                 </div>
-                <div class="newspaper-content">
+                <div class="newspaper-content" id="newspaper-content">
                     <div class="article-main" id="article-main">
                         <h1 class="article-title" id="np-article-title">Titre de l'article</h1>
+                        <p class="article-subtitle" id="np-article-subtitle"></p>
                         <div class="article-meta">
                             <span class="article-author" id="np-article-author">Par Auteur</span>
                             <span class="article-category" id="np-article-category">Categorie</span>
                         </div>
-                        <div class="article-text" id="np-article-content">
-                            Contenu de l'article...
-                        </div>
+                        <div class="article-text" id="np-article-content"></div>
                     </div>
                 </div>
                 <div class="newspaper-footer">
                     <div class="page-indicator">
-                        <span id="current-page">1</span> / <span id="total-pages">1</span>
+                        Article <span id="current-page">1</span> / <span id="total-pages">1</span>
                     </div>
                     <div class="page-controls">
-                        <span class="key-hint">[&larr;] Page precedente</span>
-                        <span class="key-hint">[&rarr;] Page suivante</span>
-                        <span class="key-hint">[BACKSPACE] Fermer</span>
+                        <span class="key-hint">[&larr;] Precedent</span>
+                        <span class="key-hint">[&rarr;] Suivant</span>
+                        <span class="key-hint">[ECHAP] Fermer</span>
                     </div>
                 </div>
             </div>
-            <div class="page-turn-effect" id="page-turn"></div>
+        </div>
+    </div>
+
+    <!-- SELECTION DE JOURNAL A L'ACHAT -->
+    <div id="newspaper-shop" class="hidden">
+        <div class="shop-container">
+            <div class="shop-header">
+                <div class="writer-logo">
+                    <span class="logo-text">WEAZEL</span>
+                    <span class="logo-news">NEWS</span>
+                </div>
+                <h2>Journaux Disponibles</h2>
+                <button class="close-btn" onclick="closeShop()">&times;</button>
+            </div>
+            <div class="shop-body">
+                <div class="editions-list" id="editions-list"></div>
+                <div class="no-editions hidden" id="no-editions">
+                    <i class="fas fa-newspaper"></i>
+                    <p>Aucun journal disponible a ce point de vente</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INTERFACE D'IMPRESSION -->
+    <div id="print-interface" class="hidden">
+        <div class="print-container">
+            <div class="print-header">
+                <i class="fas fa-print header-icon"></i>
+                <h2>Imprimer une Edition</h2>
+                <button class="close-btn" onclick="closePrint()">&times;</button>
+            </div>
+            <div class="print-body">
+                <div class="form-row">
+                    <div class="form-group flex-2">
+                        <label for="edition-name">Nom de l'edition</label>
+                        <input type="text" id="edition-name" placeholder="Ex: Edition du 15 Janvier..." maxlength="255">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="edition-price">Prix ($)</label>
+                        <input type="number" id="edition-price" value="50" min="1" max="500">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Articles a inclure (selectionnez jusqu'a 5)</label>
+                    <div class="articles-select" id="articles-select"></div>
+                </div>
+                <div class="print-summary">
+                    <div class="summary-item">
+                        <span>Articles selectionnes:</span>
+                        <span><span id="selected-count">0</span> / 5</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Cout d'impression:</span>
+                        <span id="print-cost">$10</span>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-cancel" onclick="closePrint()">Annuler</button>
+                    <button class="btn btn-publish" onclick="printEdition()"><i class="fas fa-print"></i> Imprimer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INTERFACE DE GESTION DU STOCK -->
+    <div id="stock-interface" class="hidden">
+        <div class="stock-container">
+            <div class="stock-header">
+                <i class="fas fa-boxes header-icon"></i>
+                <h2 id="stock-title">Gerer le Stock</h2>
+                <button class="close-btn" onclick="closeStock()">&times;</button>
+            </div>
+            <div class="stock-body">
+                <div class="stock-section">
+                    <h3><i class="fas fa-warehouse"></i> Stock actuel</h3>
+                    <div class="stock-list" id="current-stock"></div>
+                    <div class="no-stock hidden" id="no-current-stock">
+                        <p>Aucun journal en stock</p>
+                    </div>
+                </div>
+                <div class="stock-section">
+                    <h3><i class="fas fa-plus-circle"></i> Ajouter du stock</h3>
+                    <div class="editions-available" id="editions-available"></div>
+                    <div class="no-editions-stock hidden" id="no-editions-stock">
+                        <p>Aucune edition imprimee disponible</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

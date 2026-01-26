@@ -7,13 +7,20 @@ local isReporter = false
 local activeMic = nil
 local activeCamera = nil
 local activeNewspaper = nil
+local activeNotepad = nil
 
 -- Etats
 local isMicOut = false
 local isCameraActive = false
 local isReadingNewspaper = false
 local isWritingArticle = false
+local isWritingNote = false
+local isReadingNote = false
 local cameraOverlayActive = false
+local isInPrintZone = false
+local isShopOpen = false
+local isStockOpen = false
+local isPrintOpen = false
 
 -- Cache pour les articles
 local cachedArticles = {}
@@ -76,6 +83,12 @@ local function CanConfigureOverlay()
     if not PlayerData.job then return false end
     if PlayerData.job.name ~= Config.JobName then return false end
     return PlayerData.job.grade >= Config.MinGradeForOverlayConfig
+end
+
+local function CanPrint()
+    if not PlayerData.job then return false end
+    if PlayerData.job.name ~= Config.JobName then return false end
+    return PlayerData.job.grade >= Config.MinGradeForPrint
 end
 
 -- =====================================
@@ -175,6 +188,20 @@ local function GetRadialItems()
             end
         },
         {
+            label = 'Prendre une Note',
+            icon = 'sticky-note',
+            onSelect = function()
+                OpenNoteWriter()
+            end
+        },
+        {
+            label = 'Mes Notes',
+            icon = 'book',
+            onSelect = function()
+                OpenNotesList()
+            end
+        },
+        {
             label = 'Ecrire un Article',
             icon = 'pen-to-square',
             onSelect = function()
@@ -182,10 +209,17 @@ local function GetRadialItems()
             end
         },
         {
-            label = 'Consulter les Articles',
-            icon = 'book-open',
+            label = 'Mes Articles',
+            icon = 'file-lines',
             onSelect = function()
-                OpenArticlesList()
+                OpenMyArticlesList()
+            end
+        },
+        {
+            label = 'Imprimer une Edition',
+            icon = 'print',
+            onSelect = function()
+                OpenPrintInterface()
             end
         }
     }
@@ -449,6 +483,217 @@ function DisableCameraOverlay()
 end
 
 -- =====================================
+-- SYSTEME DE NOTES
+-- =====================================
+
+function OpenNoteWriter()
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    if isWritingNote then return end
+
+    isWritingNote = true
+
+    local ped = PlayerPedId()
+    local prop = Config.Props.notepad
+
+    -- Creer le prop notepad
+    local propHash = LoadModel(prop.model)
+    local boneIndex = GetPedBoneIndex(ped, prop.bone)
+
+    activeNotepad = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
+    AttachEntityToEntity(
+        activeNotepad, ped, boneIndex,
+        prop.offset.x, prop.offset.y, prop.offset.z,
+        prop.rotation.x, prop.rotation.y, prop.rotation.z,
+        true, true, false, true, 1, true
+    )
+
+    -- Animation
+    LoadAnimDict(Config.Animations.notesTaking.dict)
+    TaskPlayAnim(ped, Config.Animations.notesTaking.dict, Config.Animations.notesTaking.anim, 8.0, -8.0, -1, Config.Animations.notesTaking.flag, 0, false, false, false)
+
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openNoteWriter',
+        data = {}
+    })
+end
+
+function CloseNoteWriter()
+    isWritingNote = false
+
+    if activeNotepad then
+        DeleteEntity(activeNotepad)
+        activeNotepad = nil
+    end
+
+    ClearPedTasks(PlayerPedId())
+    SetNuiFocus(false, false)
+    SendNUIMessage({
+        action = 'closeNoteWriter'
+    })
+end
+
+RegisterNUICallback('saveNote', function(data, cb)
+    TriggerServerEvent('weazelnews:saveNote', {
+        title = data.title,
+        content = data.content
+    })
+    cb('ok')
+end)
+
+RegisterNUICallback('closeNoteWriter', function(data, cb)
+    CloseNoteWriter()
+    cb('ok')
+end)
+
+RegisterNetEvent('weazelnews:noteSaved', function(success)
+    if success then
+        Notify(Config.Messages.noteSaved, 'success')
+        CloseNoteWriter()
+    else
+        Notify(Config.Messages.noteError, 'error')
+    end
+end)
+
+-- Liste des notes
+function OpenNotesList()
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    TriggerServerEvent('weazelnews:getNotes')
+end
+
+RegisterNetEvent('weazelnews:receiveNotes', function(notes)
+    if not notes or #notes == 0 then
+        Notify(Config.Messages.noNotes, 'info')
+        return
+    end
+
+    local options = {}
+    for i, note in ipairs(notes) do
+        table.insert(options, {
+            title = note.title,
+            description = note.date,
+            icon = 'sticky-note',
+            onSelect = function()
+                OpenNoteReader(note)
+            end,
+            metadata = {
+                {label = 'Actions', value = 'Clic pour lire'}
+            }
+        })
+    end
+
+    -- Ajouter option supprimer
+    table.insert(options, {
+        title = 'Supprimer une note',
+        description = 'Choisir une note a supprimer',
+        icon = 'trash',
+        onSelect = function()
+            OpenDeleteNoteMenu(notes)
+        end
+    })
+
+    lib.registerContext({
+        id = 'weazelnews_notes',
+        title = 'Mes Notes',
+        options = options
+    })
+
+    lib.showContext('weazelnews_notes')
+end)
+
+function OpenNoteReader(note)
+    isReadingNote = true
+
+    local ped = PlayerPedId()
+    local prop = Config.Props.notepad
+
+    -- Creer le prop notepad
+    local propHash = LoadModel(prop.model)
+    local boneIndex = GetPedBoneIndex(ped, prop.bone)
+
+    activeNotepad = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
+    AttachEntityToEntity(
+        activeNotepad, ped, boneIndex,
+        prop.offset.x, prop.offset.y, prop.offset.z,
+        prop.rotation.x, prop.rotation.y, prop.rotation.z,
+        true, true, false, true, 1, true
+    )
+
+    -- Animation de lecture
+    LoadAnimDict(Config.Animations.reading.dict)
+    TaskPlayAnim(ped, Config.Animations.reading.dict, Config.Animations.reading.anim, 8.0, -8.0, -1, Config.Animations.reading.flag, 0, false, false, false)
+
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openNoteReader',
+        data = {
+            title = note.title,
+            content = note.content,
+            date = note.date
+        }
+    })
+end
+
+function CloseNoteReader()
+    isReadingNote = false
+
+    if activeNotepad then
+        DeleteEntity(activeNotepad)
+        activeNotepad = nil
+    end
+
+    ClearPedTasks(PlayerPedId())
+    SetNuiFocus(false, false)
+    SendNUIMessage({
+        action = 'closeNoteReader'
+    })
+end
+
+RegisterNUICallback('closeNoteReader', function(data, cb)
+    CloseNoteReader()
+    cb('ok')
+end)
+
+function OpenDeleteNoteMenu(notes)
+    local options = {}
+    for i, note in ipairs(notes) do
+        table.insert(options, {
+            title = note.title,
+            description = 'Cliquer pour supprimer',
+            icon = 'trash',
+            onSelect = function()
+                TriggerServerEvent('weazelnews:deleteNote', note.id)
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'weazelnews_delete_notes',
+        title = 'Supprimer une Note',
+        menu = 'weazelnews_notes',
+        options = options
+    })
+
+    lib.showContext('weazelnews_delete_notes')
+end
+
+RegisterNetEvent('weazelnews:noteDeleted', function(success)
+    if success then
+        Notify('Note supprimee', 'success')
+    else
+        Notify('Erreur lors de la suppression', 'error')
+    end
+end)
+
+-- =====================================
 -- SYSTEME D'ECRITURE D'ARTICLES
 -- =====================================
 
@@ -465,7 +710,8 @@ function OpenArticleWriter()
     SendNUIMessage({
         action = 'openWriter',
         data = {
-            reporterName = PlayerData.firstName and (PlayerData.firstName .. ' ' .. PlayerData.lastName) or 'Reporter Anonyme'
+            reporterName = PlayerData.firstName and (PlayerData.firstName .. ' ' .. PlayerData.lastName) or 'Reporter Anonyme',
+            categories = Config.Categories
         }
     })
 
@@ -478,12 +724,30 @@ end
 RegisterNUICallback('publishArticle', function(data, cb)
     local articleData = {
         title = data.title,
+        subtitle = data.subtitle,
         content = data.content,
         category = data.category,
+        images = data.images,
+        status = data.status or 'published',
         author = PlayerData.firstName and (PlayerData.firstName .. ' ' .. PlayerData.lastName) or 'Reporter Anonyme'
     }
 
     TriggerServerEvent('weazelnews:publishArticle', articleData)
+    cb('ok')
+end)
+
+RegisterNUICallback('saveDraft', function(data, cb)
+    local articleData = {
+        title = data.title,
+        subtitle = data.subtitle,
+        content = data.content,
+        category = data.category,
+        images = data.images,
+        status = 'draft',
+        author = PlayerData.firstName and (PlayerData.firstName .. ' ' .. PlayerData.lastName) or 'Reporter Anonyme'
+    }
+
+    TriggerServerEvent('weazelnews:saveDraft', articleData)
     cb('ok')
 end)
 
@@ -496,7 +760,21 @@ end)
 
 RegisterNetEvent('weazelnews:articlePublished', function(success, articleId)
     if success then
-        Notify(Config.Messages.articlePublished, 'success')
+        Notify(Config.Messages.articleSaved, 'success')
+        isWritingArticle = false
+        SetNuiFocus(false, false)
+        ClearPedTasks(PlayerPedId())
+        SendNUIMessage({
+            action = 'closeWriter'
+        })
+    else
+        Notify(Config.Messages.articleError, 'error')
+    end
+end)
+
+RegisterNetEvent('weazelnews:draftSaved', function(success)
+    if success then
+        Notify('Brouillon sauvegarde !', 'success')
         isWritingArticle = false
         SetNuiFocus(false, false)
         ClearPedTasks(PlayerPedId())
@@ -509,41 +787,81 @@ RegisterNetEvent('weazelnews:articlePublished', function(success, articleId)
 end)
 
 -- =====================================
--- CONSULTATION DES ARTICLES
+-- CONSULTATION DES ARTICLES (MES ARTICLES)
 -- =====================================
 
-function OpenArticlesList()
-    TriggerServerEvent('weazelnews:getArticles')
+function OpenMyArticlesList()
+    TriggerServerEvent('weazelnews:getMyArticles')
 end
 
-RegisterNetEvent('weazelnews:receiveArticles', function(articles)
+RegisterNetEvent('weazelnews:receiveMyArticles', function(articles)
     if not articles or #articles == 0 then
         Notify(Config.Messages.noArticles, 'info')
         return
     end
 
-    cachedArticles = articles
-
     local options = {}
     for i, article in ipairs(articles) do
+        local statusIcon = article.status == 'draft' and 'file-pen' or (article.status == 'printed' and 'check-double' or 'check')
+        local statusLabel = article.status == 'draft' and '[BROUILLON]' or (article.status == 'printed' and '[IMPRIME]' or '[PUBLIE]')
+
         table.insert(options, {
-            title = article.title,
-            description = 'Par ' .. article.author .. ' - ' .. article.category,
-            icon = 'newspaper',
+            title = statusLabel .. ' ' .. article.title,
+            description = article.category .. ' - ' .. article.date,
+            icon = statusIcon,
             onSelect = function()
-                ViewArticle(article)
+                OpenArticleOptions(article)
             end
         })
     end
 
     lib.registerContext({
-        id = 'weazelnews_articles',
-        title = 'Articles Weazel News',
+        id = 'weazelnews_my_articles',
+        title = 'Mes Articles',
         options = options
     })
 
-    lib.showContext('weazelnews_articles')
+    lib.showContext('weazelnews_my_articles')
 end)
+
+function OpenArticleOptions(article)
+    local options = {
+        {
+            title = 'Voir l\'article',
+            icon = 'eye',
+            onSelect = function()
+                ViewArticle(article)
+            end
+        }
+    }
+
+    if article.status == 'draft' then
+        table.insert(options, {
+            title = 'Publier',
+            icon = 'paper-plane',
+            onSelect = function()
+                TriggerServerEvent('weazelnews:publishDraft', article.id)
+            end
+        })
+    end
+
+    table.insert(options, {
+        title = 'Supprimer',
+        icon = 'trash',
+        onSelect = function()
+            TriggerServerEvent('weazelnews:deleteArticle', article.id)
+        end
+    })
+
+    lib.registerContext({
+        id = 'weazelnews_article_options',
+        title = article.title,
+        menu = 'weazelnews_my_articles',
+        options = options
+    })
+
+    lib.showContext('weazelnews_article_options')
+end
 
 function ViewArticle(article)
     lib.alertDialog({
@@ -557,12 +875,101 @@ function ViewArticle(article)
     })
 end
 
+RegisterNetEvent('weazelnews:draftPublished', function(success)
+    if success then
+        Notify('Article publie !', 'success')
+    else
+        Notify('Erreur lors de la publication', 'error')
+    end
+end)
+
+RegisterNetEvent('weazelnews:articleDeleted', function(success)
+    if success then
+        Notify('Article supprime', 'success')
+    else
+        Notify('Erreur lors de la suppression', 'error')
+    end
+end)
+
+-- =====================================
+-- SYSTEME D'IMPRESSION D'EDITIONS
+-- =====================================
+
+function OpenPrintInterface()
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    if not CanPrint() then
+        Notify('Grade insuffisant pour imprimer', 'error')
+        return
+    end
+
+    -- Verifier si dans zone d'impression
+    local playerCoords = GetEntityCoords(PlayerPedId())
+    local printZone = Config.PrintZone
+    local dist = #(playerCoords - printZone.coords)
+
+    if dist > printZone.radius then
+        Notify(Config.Messages.notInPrintZone, 'error')
+        return
+    end
+
+    TriggerServerEvent('weazelnews:getPrintableArticles')
+end
+
+RegisterNetEvent('weazelnews:openPrintInterface', function(articles)
+    if isPrintOpen then return end
+
+    isPrintOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openPrint',
+        data = {
+            articles = articles,
+            defaultPrice = Config.DefaultNewspaperPrice,
+            printCost = Config.PrintCost
+        }
+    })
+end)
+
+RegisterNUICallback('printEdition', function(data, cb)
+    TriggerServerEvent('weazelnews:printEdition', {
+        name = data.name,
+        price = data.price,
+        articleIds = data.articleIds
+    })
+    cb('ok')
+end)
+
+RegisterNUICallback('closePrint', function(data, cb)
+    isPrintOpen = false
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
+
+RegisterNetEvent('weazelnews:editionPrinted', function(success, editionId)
+    if success then
+        Notify(Config.Messages.editionPrinted, 'success')
+        isPrintOpen = false
+        SetNuiFocus(false, false)
+        SendNUIMessage({
+            action = 'closePrint'
+        })
+    else
+        Notify(Config.Messages.printError, 'error')
+    end
+end)
+
 -- =====================================
 -- SYSTEME DE LECTURE DE JOURNAL (ITEM)
 -- =====================================
 
-function OpenNewspaper(articles)
+function OpenNewspaper(data)
     if isReadingNewspaper then return end
+
+    local articles = data.articles
     if not articles or #articles == 0 then
         Notify(Config.Messages.noArticles, 'info')
         return
@@ -598,7 +1005,8 @@ function OpenNewspaper(articles)
         data = {
             articles = articles,
             currentIndex = currentArticleIndex,
-            totalArticles = #articles
+            totalArticles = #articles,
+            editionName = data.editionName or 'Edition Standard'
         }
     })
 
@@ -691,15 +1099,22 @@ end)
 -- =====================================
 
 exports('useNewspaper', function(data, slot)
-    TriggerServerEvent('weazelnews:getArticlesForNewspaper')
+    local metadata = exports.ox_inventory:GetSlotMetadata(slot)
+
+    if metadata and metadata.editionId then
+        TriggerServerEvent('weazelnews:getEditionArticles', metadata.editionId)
+    else
+        -- Fallback pour anciens journaux sans metadata
+        TriggerServerEvent('weazelnews:getArticlesForNewspaper')
+    end
 end)
 
-RegisterNetEvent('weazelnews:openNewspaperWithArticles', function(articles)
-    OpenNewspaper(articles)
+RegisterNetEvent('weazelnews:openNewspaperWithArticles', function(data)
+    OpenNewspaper(data)
 end)
 
 -- =====================================
--- POINTS DE VENTE DE JOURNAUX (ox_target seulement, pas de blip global)
+-- POINTS DE VENTE DE JOURNAUX (SHOP)
 -- =====================================
 
 CreateThread(function()
@@ -711,15 +1126,121 @@ CreateThread(function()
             radius = 1.5,
             options = {
                 {
-                    name = 'buy_newspaper',
-                    label = 'Acheter un journal ($' .. Config.NewspaperPrice .. ')',
+                    name = 'buy_newspaper_' .. vendor.id,
+                    label = 'Acheter un journal',
                     icon = 'fa-solid fa-newspaper',
                     onSelect = function()
-                        TriggerServerEvent('weazelnews:buyNewspaper')
+                        OpenShopInterface(vendor.id, vendor.label)
+                    end
+                },
+                {
+                    name = 'manage_stock_' .. vendor.id,
+                    label = 'Gerer le stock',
+                    icon = 'fa-solid fa-boxes-stacked',
+                    canInteract = function()
+                        return HasReporterJob()
+                    end,
+                    onSelect = function()
+                        OpenStockInterface(vendor.id, vendor.label)
                     end
                 }
             }
         })
+    end
+end)
+
+-- =====================================
+-- SHOP INTERFACE (ACHAT POUR CITOYENS)
+-- =====================================
+
+function OpenShopInterface(vendorId, vendorLabel)
+    TriggerServerEvent('weazelnews:getVendorStock', vendorId, vendorLabel)
+end
+
+RegisterNetEvent('weazelnews:openShop', function(data)
+    if isShopOpen then return end
+
+    isShopOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openShop',
+        data = data
+    })
+end)
+
+RegisterNUICallback('buyEdition', function(data, cb)
+    TriggerServerEvent('weazelnews:buyEdition', data.editionId, data.vendorId)
+    cb('ok')
+end)
+
+RegisterNUICallback('closeShop', function(data, cb)
+    isShopOpen = false
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
+
+RegisterNetEvent('weazelnews:editionBought', function(success)
+    if success then
+        Notify(Config.Messages.newspaperBought, 'success')
+        isShopOpen = false
+        SetNuiFocus(false, false)
+        SendNUIMessage({
+            action = 'closeShop'
+        })
+    else
+        Notify(Config.Messages.notEnoughMoney, 'error')
+    end
+end)
+
+RegisterNetEvent('weazelnews:noStock', function()
+    Notify(Config.Messages.noStock, 'info')
+end)
+
+-- =====================================
+-- STOCK INTERFACE (GESTION POUR REPORTERS)
+-- =====================================
+
+function OpenStockInterface(vendorId, vendorLabel)
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    TriggerServerEvent('weazelnews:getStockData', vendorId, vendorLabel)
+end
+
+RegisterNetEvent('weazelnews:openStock', function(data)
+    if isStockOpen then return end
+
+    isStockOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openStock',
+        data = data
+    })
+end)
+
+RegisterNUICallback('addStock', function(data, cb)
+    TriggerServerEvent('weazelnews:addStock', data.vendorId, data.editionId, data.quantity)
+    cb('ok')
+end)
+
+RegisterNUICallback('closeStock', function(data, cb)
+    isStockOpen = false
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
+
+RegisterNetEvent('weazelnews:stockAdded', function(success)
+    if success then
+        Notify(Config.Messages.stockAdded, 'success')
+        isStockOpen = false
+        SetNuiFocus(false, false)
+        SendNUIMessage({
+            action = 'closeStock'
+        })
+    else
+        Notify(Config.Messages.stockError, 'error')
     end
 end)
 
@@ -742,6 +1263,32 @@ CreateThread(function()
 end)
 
 -- =====================================
+-- ZONE D'IMPRESSION (ox_target)
+-- =====================================
+
+CreateThread(function()
+    Wait(1000)
+
+    exports.ox_target:addSphereZone({
+        coords = Config.PrintZone.coords,
+        radius = Config.PrintZone.radius,
+        options = {
+            {
+                name = 'weazelnews_print',
+                label = 'Imprimer une edition',
+                icon = 'fa-solid fa-print',
+                canInteract = function()
+                    return HasReporterJob() and CanPrint()
+                end,
+                onSelect = function()
+                    TriggerServerEvent('weazelnews:getPrintableArticles')
+                end
+            }
+        }
+    })
+end)
+
+-- =====================================
 -- CLEANUP
 -- =====================================
 
@@ -752,6 +1299,7 @@ AddEventHandler('onResourceStop', function(resourceName)
     if activeMic then DeleteEntity(activeMic) end
     if activeCamera then DeleteEntity(activeCamera) end
     if activeNewspaper then DeleteEntity(activeNewspaper) end
+    if activeNotepad then DeleteEntity(activeNotepad) end
 
     -- Supprimer les blips vendeurs
     for _, blip in ipairs(vendorBlips) do
