@@ -465,6 +465,99 @@ RegisterNetEvent('weazelnews:printEdition', function(editionData)
 end)
 
 -- =====================================
+-- SAUVEGARDE ARTICLE DEPUIS EDITEUR D'EDITION
+-- =====================================
+
+RegisterNetEvent('weazelnews:saveArticleFromEditor', function(articleData)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+
+    if not xPlayer then return end
+
+    -- Verifier que le joueur est reporter
+    if xPlayer.job.name ~= Config.JobName then
+        TriggerClientEvent('weazelnews:articleFromEditorSaved', source, false)
+        return
+    end
+
+    -- Validation des donnees
+    if not articleData.title or articleData.title == '' then
+        TriggerClientEvent('weazelnews:articleFromEditorSaved', source, false)
+        return
+    end
+
+    -- Encoder les images en JSON
+    local imagesJson = articleData.images and json.encode(articleData.images) or nil
+    local author = xPlayer.getName()
+
+    if articleData.id and articleData.id > 0 then
+        -- Mise a jour d'un article existant
+        MySQL.update('UPDATE weazelnews_articles SET title = ?, subtitle = ?, content = ?, category = ?, images = ?, status = ? WHERE id = ? AND identifier = ?', {
+            articleData.title,
+            articleData.subtitle or '',
+            articleData.content or '',
+            articleData.category or 'Actualites',
+            imagesJson,
+            articleData.status or 'published',
+            articleData.id,
+            xPlayer.identifier
+        }, function(affectedRows)
+            if affectedRows > 0 then
+                -- Renvoyer l'article mis a jour
+                local updatedArticle = {
+                    id = articleData.id,
+                    title = articleData.title,
+                    subtitle = articleData.subtitle or '',
+                    content = articleData.content or '',
+                    author = author,
+                    category = articleData.category or 'Actualites',
+                    images = articleData.images or {}
+                }
+                TriggerClientEvent('weazelnews:articleFromEditorSaved', source, true, updatedArticle)
+                print(('[Weazel News] Article modifie via editeur par %s: %s'):format(author, articleData.title))
+            else
+                TriggerClientEvent('weazelnews:articleFromEditorSaved', source, false)
+            end
+        end)
+    else
+        -- Nouvel article
+        MySQL.insert('INSERT INTO weazelnews_articles (title, subtitle, content, author, category, identifier, images, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
+            articleData.title,
+            articleData.subtitle or '',
+            articleData.content or '',
+            author,
+            articleData.category or 'Actualites',
+            xPlayer.identifier,
+            imagesJson,
+            articleData.status or 'published'
+        }, function(articleId)
+            if articleId then
+                -- Renvoyer le nouvel article
+                local newArticle = {
+                    id = articleId,
+                    title = articleData.title,
+                    subtitle = articleData.subtitle or '',
+                    content = articleData.content or '',
+                    author = author,
+                    category = articleData.category or 'Actualites',
+                    images = articleData.images or {}
+                }
+                TriggerClientEvent('weazelnews:articleFromEditorSaved', source, true, newArticle)
+
+                -- Webhook si publie
+                if articleData.status ~= 'draft' then
+                    SendWebhook(articleData.title, articleData.content or '', author, articleData.category or 'Actualites')
+                end
+
+                print(('[Weazel News] Article cree via editeur par %s: %s'):format(author, articleData.title))
+            else
+                TriggerClientEvent('weazelnews:articleFromEditorSaved', source, false)
+            end
+        end)
+    end
+end)
+
+-- =====================================
 -- EDITEUR D'EDITION AVANCE
 -- =====================================
 

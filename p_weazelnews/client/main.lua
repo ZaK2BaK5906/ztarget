@@ -1001,7 +1001,8 @@ RegisterNetEvent('weazelnews:openEditionEditor', function(articles)
         action = 'openEditionEditor',
         data = {
             articles = articles,
-            printCost = Config.PrintCost
+            printCost = Config.PrintCost,
+            categories = Config.Categories
         }
     })
 end)
@@ -1034,6 +1035,36 @@ RegisterNetEvent('weazelnews:advancedEditionPrinted', function(success, editionI
         })
     else
         Notify(Config.Messages.printError, 'error')
+    end
+end)
+
+-- Callback pour sauvegarder un article depuis l'editeur d'edition
+RegisterNUICallback('saveArticleFromEditor', function(data, cb)
+    TriggerServerEvent('weazelnews:saveArticleFromEditor', {
+        id = data.id,
+        title = data.title,
+        subtitle = data.subtitle,
+        category = data.category,
+        content = data.content,
+        images = data.images,
+        status = data.status
+    })
+    cb('ok')
+end)
+
+-- Recevoir l'article sauvegarde
+RegisterNetEvent('weazelnews:articleFromEditorSaved', function(success, article)
+    if success then
+        Notify(article and article.id and 'Article modifie!' or 'Article cree!', 'success')
+        -- Envoyer au NUI pour mise a jour de la liste
+        if article then
+            SendNUIMessage({
+                action = 'articleSaved',
+                data = article
+            })
+        end
+    else
+        Notify('Erreur lors de la sauvegarde', 'error')
     end
 end)
 

@@ -692,24 +692,7 @@ function navigateNewspaper(direction) {
     }
 }
 
-// =====================================
-// CHARACTER COUNTER
-// =====================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    const contentArea = document.getElementById('article-content');
-    const charCount = document.getElementById('char-count');
-
-    if (contentArea && charCount) {
-        contentArea.addEventListener('input', function() {
-            charCount.textContent = this.value.length;
-            if (this.value.length > 10000) {
-                this.value = this.value.substring(0, 10000);
-                charCount.textContent = '10000';
-            }
-        });
-    }
-});
+// Character counter integre dans DOMContentLoaded final
 
 // =====================================
 // EDITEUR D'EDITION AVANCE
@@ -727,6 +710,12 @@ let editorLayout = {
 let selectedElement = null;
 let canvasZoom = 1;
 let printCostBase = 10;
+let draggedElement = null;
+let draggedType = null;
+let draggedId = null;
+let editorCategories = ['Actualites', 'Politique', 'Economie', 'Sport', 'Faits Divers', 'Culture', 'Meteo', 'Interview'];
+let editorArticleImages = [];
+let editingArticleId = null;
 
 function openEditionEditor(data) {
     document.getElementById('edition-editor').classList.remove('hidden');
@@ -738,6 +727,9 @@ function openEditionEditor(data) {
     selectedElement = null;
     canvasZoom = 1;
     printCostBase = data.printCost || 10;
+    editorCategories = data.categories || editorCategories;
+    editorArticleImages = [];
+    editingArticleId = null;
 
     // Set date
     const dateText = document.getElementById('canvas-date-text');
@@ -747,10 +739,12 @@ function openEditionEditor(data) {
         });
     }
 
-    // Render articles
+    // Render articles and setup
     renderArticlesPool();
+    setupEditorCategorySelect();
     updateSummary();
     resetAllZones();
+    initDragAndDrop();
 }
 
 function closeEditionEditor() {
@@ -769,25 +763,186 @@ function switchEditorTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.toggle('active', content.id === 'tab-' + tabName);
     });
+
+    // Si on va sur l'onglet write, focus sur le titre
+    if (tabName === 'write') {
+        setTimeout(() => {
+            const titleInput = document.getElementById('ee-article-title');
+            if (titleInput) titleInput.focus();
+        }, 100);
+    }
+}
+
+// =====================================
+// DRAG AND DROP AMELIORE
+// =====================================
+
+function initDragAndDrop() {
+    // Initialiser les zones de drop
+    const dropZones = document.querySelectorAll('.drop-zone');
+    dropZones.forEach(zone => {
+        zone.addEventListener('dragover', handleDragOver);
+        zone.addEventListener('dragenter', handleDragEnter);
+        zone.addEventListener('dragleave', handleDragLeave);
+        zone.addEventListener('drop', handleDrop);
+    });
+}
+
+function handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(event) {
+    event.preventDefault();
+    const zone = event.currentTarget;
+    if (zone && zone.classList.contains('drop-zone')) {
+        zone.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    const zone = event.currentTarget;
+    // Verifier qu'on quitte vraiment la zone et pas un enfant
+    const rect = zone.getBoundingClientRect();
+    const x = event.clientX;
+    const y = event.clientY;
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+        zone.classList.remove('drag-over');
+    }
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const zone = event.currentTarget;
+    zone.classList.remove('drag-over');
+
+    if (!draggedType || draggedId === null) return;
+
+    const zoneName = zone.dataset.zone;
+
+    if (draggedType === 'article') {
+        const article = editorArticles.find(a => a.id === draggedId);
+        if (!article) return;
+
+        // Verifier si l'article n'est pas deja utilise
+        if (isArticleUsed(article.id)) {
+            showEditorNotification('Cet article est deja utilise dans l\'edition', 'warning');
+            return;
+        }
+
+        if (zoneName === 'une') {
+            editorLayout.une = { type: 'article', id: article.id, data: article };
+        } else if (zoneName.startsWith('col')) {
+            editorLayout[zoneName].push({ type: 'article', id: article.id, data: article });
+        }
+    } else if (draggedType === 'ad') {
+        const ad = editorAds.find(a => a.id === draggedId);
+        if (!ad) return;
+
+        if (zoneName === 'banner') {
+            editorLayout.banner = { type: 'ad', id: ad.id, data: ad };
+        } else if (zoneName.startsWith('col')) {
+            editorLayout[zoneName].push({ type: 'ad', id: ad.id, data: ad });
+        }
+    } else if (draggedType === 'element') {
+        // Elements decoratifs
+        const elementData = { type: 'element', elementType: draggedId, id: Date.now() };
+        if (zoneName.startsWith('col')) {
+            editorLayout[zoneName].push(elementData);
+        }
+    }
+
+    renderZone(zoneName);
+    renderArticlesPool();
+    renderCreatedAds();
+    updateSummary();
+
+    // Reset
+    draggedElement = null;
+    draggedType = null;
+    draggedId = null;
+    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
 }
 
 function renderArticlesPool() {
     const pool = document.getElementById('articles-pool');
     if (!pool) return;
 
-    pool.innerHTML = editorArticles.map((article, index) => `
-        <div class="article-card ${isArticleUsed(article.id) ? 'used' : ''}"
-             draggable="true"
-             data-article-id="${article.id}"
-             data-article-index="${index}"
-             ondragstart="dragStart(event, 'article', ${article.id})">
-            <h4>${article.title}</h4>
-            <div class="article-card-meta">
-                <span class="article-card-category">${article.category}</span>
-                <span>${article.author}</span>
+    if (editorArticles.length === 0) {
+        pool.innerHTML = '<div class="empty-pool"><i class="fas fa-file-alt"></i><p>Aucun article disponible</p><p class="hint">Creez un article avec l\'onglet "Rediger"</p></div>';
+        return;
+    }
+
+    pool.innerHTML = editorArticles.map((article, index) => {
+        const isUsed = isArticleUsed(article.id);
+        return `
+            <div class="article-card ${isUsed ? 'used' : ''}"
+                 draggable="${!isUsed}"
+                 data-article-id="${article.id}"
+                 data-article-index="${index}"
+                 data-drag-type="article"
+                 data-drag-id="${article.id}">
+                <div class="article-card-status">${isUsed ? '<i class="fas fa-check"></i>' : ''}</div>
+                <h4>${article.title}</h4>
+                <div class="article-card-meta">
+                    <span class="article-card-category">${article.category}</span>
+                    <span>${article.author}</span>
+                </div>
+                <div class="article-card-actions">
+                    <button class="btn-card-action" onclick="editArticleInEditor(${article.id})" title="Modifier"><i class="fas fa-edit"></i></button>
+                    <button class="btn-card-action" onclick="previewArticleInEditor(${article.id})" title="Apercu"><i class="fas fa-eye"></i></button>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+
+    // Attacher les evenements drag
+    pool.querySelectorAll('.article-card[draggable="true"]').forEach(card => {
+        card.addEventListener('dragstart', handleArticleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+}
+
+function handleArticleDragStart(event) {
+    const card = event.currentTarget;
+    draggedType = card.dataset.dragType;
+    draggedId = parseInt(card.dataset.dragId);
+    draggedElement = card;
+    card.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `${draggedType}:${draggedId}`);
+}
+
+function handleAdDragStart(event) {
+    const card = event.currentTarget;
+    draggedType = 'ad';
+    draggedId = parseInt(card.dataset.adId);
+    draggedElement = card;
+    card.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `ad:${draggedId}`);
+}
+
+function handleElementDragStart(event) {
+    const el = event.currentTarget;
+    draggedType = 'element';
+    draggedId = el.dataset.elementType;
+    draggedElement = el;
+    el.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `element:${draggedId}`);
+}
+
+function handleDragEnd(event) {
+    event.currentTarget.classList.remove('dragging');
+    document.querySelectorAll('.drop-zone.drag-over').forEach(z => z.classList.remove('drag-over'));
+    draggedElement = null;
+    draggedType = null;
+    draggedId = null;
 }
 
 function isArticleUsed(articleId) {
@@ -800,65 +955,102 @@ function isArticleUsed(articleId) {
 
 function filterArticles() {
     const search = document.getElementById('article-search').value.toLowerCase();
-    document.querySelectorAll('.article-card').forEach(card => {
+    document.querySelectorAll('#articles-pool .article-card').forEach(card => {
         const title = card.querySelector('h4').textContent.toLowerCase();
-        card.style.display = title.includes(search) ? 'block' : 'none';
+        card.style.display = title.includes(search) ? 'flex' : 'none';
     });
 }
 
-// Drag and Drop
+// Legacy functions pour compatibilite
 function dragStart(event, type, id) {
-    event.dataTransfer.setData('type', type);
-    event.dataTransfer.setData('id', id.toString());
+    draggedType = type;
+    draggedId = id;
     event.target.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', `${type}:${id}`);
 }
 
 function allowDrop(event) {
     event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
 }
 
 function dragEnter(event) {
-    event.target.closest('.drop-zone').classList.add('drag-over');
+    event.preventDefault();
+    const zone = event.target.closest('.drop-zone');
+    if (zone) zone.classList.add('drag-over');
 }
 
 function dragLeave(event) {
-    event.target.closest('.drop-zone').classList.remove('drag-over');
+    event.preventDefault();
+    const zone = event.target.closest('.drop-zone');
+    if (zone) {
+        const rect = zone.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX >= rect.right ||
+            event.clientY < rect.top || event.clientY >= rect.bottom) {
+            zone.classList.remove('drag-over');
+        }
+    }
 }
 
 function dropItem(event) {
     event.preventDefault();
+    event.stopPropagation();
     const zone = event.target.closest('.drop-zone');
+    if (!zone) return;
     zone.classList.remove('drag-over');
 
-    const type = event.dataTransfer.getData('type');
-    const id = parseInt(event.dataTransfer.getData('id'));
     const zoneName = zone.dataset.zone;
 
-    if (type === 'article') {
-        const article = editorArticles.find(a => a.id === id);
+    if (draggedType === 'article') {
+        const article = editorArticles.find(a => a.id === draggedId);
         if (!article) return;
-
+        if (isArticleUsed(article.id)) {
+            showEditorNotification('Article deja utilise', 'warning');
+            return;
+        }
         if (zoneName === 'une') {
             editorLayout.une = { type: 'article', id: article.id, data: article };
         } else if (zoneName.startsWith('col')) {
             editorLayout[zoneName].push({ type: 'article', id: article.id, data: article });
         }
-    } else if (type === 'ad') {
-        const ad = editorAds.find(a => a.id === id);
+    } else if (draggedType === 'ad') {
+        const ad = editorAds.find(a => a.id === draggedId);
         if (!ad) return;
-
         if (zoneName === 'banner') {
             editorLayout.banner = { type: 'ad', id: ad.id, data: ad };
         } else if (zoneName.startsWith('col')) {
             editorLayout[zoneName].push({ type: 'ad', id: ad.id, data: ad });
         }
+    } else if (draggedType === 'element') {
+        const elementData = { type: 'element', elementType: draggedId, id: Date.now() };
+        if (zoneName.startsWith('col')) {
+            editorLayout[zoneName].push(elementData);
+        }
     }
 
     renderZone(zoneName);
     renderArticlesPool();
+    renderCreatedAds();
     updateSummary();
 
+    draggedElement = null;
+    draggedType = null;
+    draggedId = null;
     document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+}
+
+function showEditorNotification(message, type = 'info') {
+    let notif = document.getElementById('editor-notification');
+    if (!notif) {
+        notif = document.createElement('div');
+        notif.id = 'editor-notification';
+        document.body.appendChild(notif);
+    }
+    notif.className = 'editor-notification ' + type;
+    notif.textContent = message;
+    notif.classList.add('show');
+    setTimeout(() => notif.classList.remove('show'), 3000);
 }
 
 function renderZone(zoneName) {
@@ -891,9 +1083,12 @@ function renderZone(zoneName) {
             content = items.map((item, index) => {
                 if (item.type === 'article') {
                     return createDroppedItemHTML(item, zoneName, index);
-                } else {
+                } else if (item.type === 'ad') {
                     return createDroppedAdHTML(item, zoneName, index);
+                } else if (item.type === 'element') {
+                    return createDroppedElementHTML(item, zoneName, index);
                 }
+                return '';
             }).join('');
             zone.classList.add('has-content');
         } else {
@@ -903,6 +1098,33 @@ function renderZone(zoneName) {
     }
 
     zone.innerHTML = content;
+}
+
+function createDroppedElementHTML(item, zoneName, index) {
+    const icons = {
+        'separator': 'fa-grip-lines',
+        'quote': 'fa-quote-right',
+        'image': 'fa-image',
+        'weather': 'fa-cloud-sun',
+        'stocks': 'fa-chart-line',
+        'spacer': 'fa-arrows-alt-v'
+    };
+    const labels = {
+        'separator': 'Separateur',
+        'quote': 'Citation',
+        'image': 'Image',
+        'weather': 'Meteo',
+        'stocks': 'Bourse',
+        'spacer': 'Espace'
+    };
+
+    return `
+        <div class="dropped-element" onclick="selectElement('${zoneName}', ${index})" data-zone="${zoneName}" data-index="${index}">
+            <i class="fas ${icons[item.elementType] || 'fa-cube'}"></i>
+            <span>${labels[item.elementType] || item.elementType}</span>
+            <button class="item-remove" onclick="removeItem(event, '${zoneName}', ${index})"><i class="fas fa-times"></i></button>
+        </div>
+    `;
 }
 
 function createDroppedItemHTML(item, zoneName, index = 0) {
@@ -1017,7 +1239,250 @@ function resetAllZones() {
     });
 }
 
-// Publicites
+// =====================================
+// CREATION D'ARTICLES DANS L'EDITEUR
+// =====================================
+
+function setupEditorCategorySelect() {
+    const select = document.getElementById('ee-article-category');
+    if (!select) return;
+    select.innerHTML = editorCategories.map(cat =>
+        `<option value="${cat}">${cat}</option>`
+    ).join('');
+}
+
+function saveArticleFromEditor() {
+    const title = document.getElementById('ee-article-title').value.trim();
+    const subtitle = document.getElementById('ee-article-subtitle').value.trim();
+    const category = document.getElementById('ee-article-category').value;
+    const content = document.getElementById('ee-article-content').value.trim();
+
+    if (!title) {
+        shakeElement(document.getElementById('ee-article-title'));
+        showEditorNotification('Le titre est requis', 'error');
+        return;
+    }
+    if (!content) {
+        shakeElement(document.getElementById('ee-article-content'));
+        showEditorNotification('Le contenu est requis', 'error');
+        return;
+    }
+
+    // Envoyer au serveur
+    fetch(`https://${getResourceName()}/saveArticleFromEditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            id: editingArticleId,
+            title,
+            subtitle,
+            category,
+            content,
+            images: editorArticleImages,
+            status: 'published'
+        })
+    }).then(() => {
+        showEditorNotification(editingArticleId ? 'Article modifie!' : 'Article cree!', 'success');
+        clearEditorArticleForm();
+        // Retour a l'onglet articles
+        switchEditorTab('articles');
+    }).catch(() => {});
+}
+
+function saveDraftFromEditor() {
+    const title = document.getElementById('ee-article-title').value.trim();
+    const subtitle = document.getElementById('ee-article-subtitle').value.trim();
+    const category = document.getElementById('ee-article-category').value;
+    const content = document.getElementById('ee-article-content').value.trim();
+
+    if (!title) {
+        shakeElement(document.getElementById('ee-article-title'));
+        return;
+    }
+
+    fetch(`https://${getResourceName()}/saveArticleFromEditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            id: editingArticleId,
+            title,
+            subtitle,
+            category,
+            content,
+            images: editorArticleImages,
+            status: 'draft'
+        })
+    }).then(() => {
+        showEditorNotification('Brouillon sauvegarde!', 'success');
+    }).catch(() => {});
+}
+
+function clearEditorArticleForm() {
+    document.getElementById('ee-article-title').value = '';
+    document.getElementById('ee-article-subtitle').value = '';
+    document.getElementById('ee-article-category').value = editorCategories[0] || 'Actualites';
+    document.getElementById('ee-article-content').value = '';
+    editorArticleImages = [];
+    editingArticleId = null;
+    renderEditorImagesList();
+    updateEditorCharCount();
+}
+
+function editArticleInEditor(articleId) {
+    const article = editorArticles.find(a => a.id === articleId);
+    if (!article) return;
+
+    editingArticleId = articleId;
+    document.getElementById('ee-article-title').value = article.title || '';
+    document.getElementById('ee-article-subtitle').value = article.subtitle || '';
+    document.getElementById('ee-article-category').value = article.category || editorCategories[0];
+    document.getElementById('ee-article-content').value = article.content || '';
+    editorArticleImages = article.images ? [...article.images] : [];
+    renderEditorImagesList();
+    updateEditorCharCount();
+
+    switchEditorTab('write');
+}
+
+function previewArticleInEditor(articleId) {
+    const article = editorArticles.find(a => a.id === articleId);
+    if (!article) return;
+
+    const modal = document.getElementById('preview-modal');
+    const content = document.getElementById('preview-content');
+
+    content.innerHTML = `
+        <div style="font-family: Libre Baskerville, serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="font-family: Playfair Display, serif; font-size: 28px; margin-bottom: 10px;">${article.title}</h1>
+            ${article.subtitle ? `<p style="font-style: italic; color: #666; margin-bottom: 15px; font-size: 16px;">${article.subtitle}</p>` : ''}
+            <div style="font-size: 12px; color: #8b7355; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                Par ${article.author} | ${article.category}
+            </div>
+            <div style="line-height: 1.8; text-align: justify;">
+                ${parseArticleContent(article.content || '')}
+            </div>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+}
+
+function insertEditorImage() {
+    openEditorImageModal('inline');
+}
+
+function insertEditorSeparator() {
+    const content = document.getElementById('ee-article-content');
+    const pos = content.selectionStart;
+    const text = content.value;
+    content.value = text.slice(0, pos) + '\n---\n' + text.slice(pos);
+    content.focus();
+    updateEditorCharCount();
+}
+
+function insertEditorQuote() {
+    const content = document.getElementById('ee-article-content');
+    const pos = content.selectionStart;
+    const end = content.selectionEnd;
+    const text = content.value;
+    const selected = text.slice(pos, end);
+    content.value = text.slice(0, pos) + `[QUOTE]${selected || 'Citation'}[/QUOTE]` + text.slice(end);
+    content.focus();
+    updateEditorCharCount();
+}
+
+function insertEditorSubtitle() {
+    const content = document.getElementById('ee-article-content');
+    const pos = content.selectionStart;
+    const end = content.selectionEnd;
+    const text = content.value;
+    const selected = text.slice(pos, end);
+    content.value = text.slice(0, pos) + `[H2]${selected || 'Sous-titre'}[/H2]` + text.slice(end);
+    content.focus();
+    updateEditorCharCount();
+}
+
+function updateEditorCharCount() {
+    const content = document.getElementById('ee-article-content');
+    const counter = document.getElementById('ee-char-count');
+    if (content && counter) {
+        counter.textContent = content.value.length;
+    }
+}
+
+function addEditorImageUrl() {
+    openEditorImageModal('list');
+}
+
+let editorImageModalMode = 'list';
+
+function openEditorImageModal(mode) {
+    editorImageModalMode = mode;
+    document.getElementById('editor-image-modal').classList.remove('hidden');
+    document.getElementById('editor-image-url-input').value = '';
+    setTimeout(() => document.getElementById('editor-image-url-input').focus(), 100);
+}
+
+function closeEditorImageModal() {
+    document.getElementById('editor-image-modal').classList.add('hidden');
+}
+
+function confirmEditorImageUrl() {
+    const url = document.getElementById('editor-image-url-input').value.trim();
+    if (!url) {
+        shakeElement(document.getElementById('editor-image-url-input'));
+        return;
+    }
+
+    if (editorImageModalMode === 'inline') {
+        const content = document.getElementById('ee-article-content');
+        const pos = content.selectionStart;
+        const text = content.value;
+        content.value = text.slice(0, pos) + `[IMG:${url}]` + text.slice(pos);
+        content.focus();
+        updateEditorCharCount();
+    } else {
+        editorArticleImages.push(url);
+        renderEditorImagesList();
+    }
+
+    closeEditorImageModal();
+}
+
+function removeEditorImage(index) {
+    editorArticleImages.splice(index, 1);
+    renderEditorImagesList();
+}
+
+function renderEditorImagesList() {
+    const container = document.getElementById('ee-images-list');
+    if (!container) return;
+
+    container.innerHTML = editorArticleImages.map((url, i) => `
+        <div class="ee-image-item">
+            <img src="${url}" onerror="this.style.display='none'" alt="">
+            <span>${url.substring(0, 25)}...</span>
+            <button onclick="removeEditorImage(${i})"><i class="fas fa-trash"></i></button>
+        </div>
+    `).join('');
+}
+
+// Recevoir un nouvel article cree
+function addArticleToEditor(article) {
+    // Ajouter a la liste ou mettre a jour
+    const existingIndex = editorArticles.findIndex(a => a.id === article.id);
+    if (existingIndex >= 0) {
+        editorArticles[existingIndex] = article;
+    } else {
+        editorArticles.unshift(article);
+    }
+    renderArticlesPool();
+    showEditorNotification('Article ajoute a la liste', 'success');
+}
+
+// =====================================
+// PUBLICITES AMELIOREES
+// =====================================
+
 let adIdCounter = 1;
 
 function createAdBlock() {
@@ -1025,6 +1490,8 @@ function createAdBlock() {
     const slogan = document.getElementById('ad-slogan').value.trim();
     const image = document.getElementById('ad-image').value.trim();
     const size = document.getElementById('ad-size').value;
+    const contact = document.getElementById('ad-contact') ? document.getElementById('ad-contact').value.trim() : '';
+    const color = document.getElementById('ad-color') ? document.getElementById('ad-color').value : '#8b7355';
 
     if (!business) {
         shakeElement(document.getElementById('ad-business'));
@@ -1036,26 +1503,80 @@ function createAdBlock() {
         business,
         slogan: slogan || 'Votre partenaire de confiance',
         image,
-        size
+        size,
+        contact,
+        color
     };
 
     editorAds.push(ad);
     renderCreatedAds();
+    showEditorNotification('Publicite creee!', 'success');
 
     // Clear inputs
     document.getElementById('ad-business').value = '';
     document.getElementById('ad-slogan').value = '';
     document.getElementById('ad-image').value = '';
+    if (document.getElementById('ad-contact')) document.getElementById('ad-contact').value = '';
+}
+
+function deleteAd(adId) {
+    editorAds = editorAds.filter(a => a.id !== adId);
+    // Supprimer des zones
+    if (editorLayout.banner && editorLayout.banner.id === adId) {
+        editorLayout.banner = null;
+        renderZone('banner');
+    }
+    ['col1', 'col2', 'col3'].forEach(col => {
+        const idx = editorLayout[col].findIndex(item => item.type === 'ad' && item.id === adId);
+        if (idx >= 0) {
+            editorLayout[col].splice(idx, 1);
+            renderZone(col);
+        }
+    });
+    renderCreatedAds();
+    updateSummary();
+}
+
+function isAdUsed(adId) {
+    if (editorLayout.banner && editorLayout.banner.id === adId) return true;
+    for (const col of ['col1', 'col2', 'col3']) {
+        if (editorLayout[col].some(item => item.type === 'ad' && item.id === adId)) return true;
+    }
+    return false;
 }
 
 function renderCreatedAds() {
     const container = document.getElementById('created-ads');
-    container.innerHTML = `<h4>Publicites creees</h4>` + editorAds.map(ad => `
-        <div class="ad-block" draggable="true" ondragstart="dragStart(event, 'ad', ${ad.id})">
-            <h5>${ad.business}</h5>
-            <p>${ad.slogan}</p>
-        </div>
-    `).join('');
+    if (!container) return;
+
+    if (editorAds.length === 0) {
+        container.innerHTML = '<h4>Publicites creees</h4><p class="empty-hint">Aucune publicite creee</p>';
+        return;
+    }
+
+    container.innerHTML = `<h4>Publicites creees</h4>` + editorAds.map(ad => {
+        const used = isAdUsed(ad.id);
+        return `
+            <div class="ad-block ${used ? 'used' : ''}"
+                 draggable="${!used}"
+                 data-ad-id="${ad.id}">
+                <div class="ad-block-header">
+                    <span class="ad-size-badge">${ad.size}</span>
+                    <button class="btn-delete-ad" onclick="deleteAd(${ad.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
+                </div>
+                <h5>${ad.business}</h5>
+                <p>${ad.slogan}</p>
+                ${ad.image ? `<img src="${ad.image}" class="ad-preview-img" onerror="this.style.display='none'">` : ''}
+                ${used ? '<div class="used-badge"><i class="fas fa-check"></i></div>' : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Attacher evenements drag
+    container.querySelectorAll('.ad-block[draggable="true"]').forEach(block => {
+        block.addEventListener('dragstart', handleAdDragStart);
+        block.addEventListener('dragend', handleDragEnd);
+    });
 }
 
 // Templates
@@ -1249,8 +1770,109 @@ function printFromEditor() {
 }
 
 function columnSettings(colNum) {
-    // Future: open column settings modal
-    console.log('Settings for column', colNum);
+    // Modal parametres colonne
+    const items = editorLayout['col' + colNum];
+    let html = `<div class="column-settings-modal">
+        <h4>Colonne ${colNum} - ${items.length} element(s)</h4>
+        <div class="column-items-list">`;
+
+    if (items.length === 0) {
+        html += '<p class="empty-hint">Aucun element</p>';
+    } else {
+        items.forEach((item, idx) => {
+            if (item.type === 'article') {
+                html += `<div class="settings-item">
+                    <span><i class="fas fa-file-alt"></i> ${item.data.title}</span>
+                    <button onclick="moveItemUp('col${colNum}', ${idx})"><i class="fas fa-arrow-up"></i></button>
+                    <button onclick="moveItemDown('col${colNum}', ${idx})"><i class="fas fa-arrow-down"></i></button>
+                </div>`;
+            } else if (item.type === 'ad') {
+                html += `<div class="settings-item ad">
+                    <span><i class="fas fa-ad"></i> ${item.data.business}</span>
+                    <button onclick="moveItemUp('col${colNum}', ${idx})"><i class="fas fa-arrow-up"></i></button>
+                    <button onclick="moveItemDown('col${colNum}', ${idx})"><i class="fas fa-arrow-down"></i></button>
+                </div>`;
+            } else if (item.type === 'element') {
+                html += `<div class="settings-item element">
+                    <span><i class="fas fa-shapes"></i> ${item.elementType}</span>
+                    <button onclick="moveItemUp('col${colNum}', ${idx})"><i class="fas fa-arrow-up"></i></button>
+                    <button onclick="moveItemDown('col${colNum}', ${idx})"><i class="fas fa-arrow-down"></i></button>
+                </div>`;
+            }
+        });
+    }
+
+    html += '</div><button class="btn-close-settings" onclick="closeColumnSettings()">Fermer</button></div>';
+
+    let modal = document.getElementById('column-settings-overlay');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'column-settings-overlay';
+        modal.className = 'column-settings-overlay';
+        document.body.appendChild(modal);
+    }
+    modal.innerHTML = html;
+    modal.classList.add('show');
+}
+
+function closeColumnSettings() {
+    const modal = document.getElementById('column-settings-overlay');
+    if (modal) modal.classList.remove('show');
+}
+
+function moveItemUp(colName, index) {
+    if (index <= 0) return;
+    const items = editorLayout[colName];
+    [items[index - 1], items[index]] = [items[index], items[index - 1]];
+    renderZone(colName);
+    columnSettings(parseInt(colName.replace('col', '')));
+}
+
+function moveItemDown(colName, index) {
+    const items = editorLayout[colName];
+    if (index >= items.length - 1) return;
+    [items[index], items[index + 1]] = [items[index + 1], items[index]];
+    renderZone(colName);
+    columnSettings(parseInt(colName.replace('col', '')));
+}
+
+// Setup des elements draggables
+function setupElementsDrag() {
+    document.querySelectorAll('#tab-elements .element-item').forEach(el => {
+        el.addEventListener('dragstart', handleElementDragStart);
+        el.addEventListener('dragend', handleDragEnd);
+    });
+}
+
+// Sauvegarder le layout (pour usage futur)
+function saveEditionLayout() {
+    showEditorNotification('Layout sauvegarde!', 'success');
+}
+
+// Reinitialiser l'edition
+function resetEdition() {
+    if (!confirm('Voulez-vous vraiment reinitialiser l\'edition?')) return;
+    editorLayout = { une: null, col1: [], col2: [], col3: [], banner: null };
+    resetAllZones();
+    renderArticlesPool();
+    renderCreatedAds();
+    updateSummary();
+    showEditorNotification('Edition reinitialisee', 'info');
+}
+
+// Dupliquer un article dans la liste
+function duplicateArticle(articleId) {
+    const article = editorArticles.find(a => a.id === articleId);
+    if (!article) return;
+
+    const newArticle = {
+        ...article,
+        id: Date.now(),
+        title: article.title + ' (copie)'
+    };
+    editorArticles.push(newArticle);
+    renderArticlesPool();
+    showEditorNotification('Article duplique', 'success');
 }
 
 // Message handler update
@@ -1277,5 +1899,35 @@ window.addEventListener('message', function(event) {
         case 'closeStock': document.getElementById('stock-interface').classList.add('hidden'); break;
         case 'openEditionEditor': openEditionEditor(data.data); break;
         case 'closeEditionEditor': document.getElementById('edition-editor').classList.add('hidden'); break;
+        case 'articleSaved': addArticleToEditor(data.data); break;
+        case 'refreshArticles':
+            editorArticles = data.data.articles || [];
+            renderArticlesPool();
+            break;
     }
+});
+
+// Initialisation au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    // Character counter pour editeur principal
+    const contentArea = document.getElementById('article-content');
+    const charCount = document.getElementById('char-count');
+    if (contentArea && charCount) {
+        contentArea.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+            if (this.value.length > 10000) {
+                this.value = this.value.substring(0, 10000);
+                charCount.textContent = '10000';
+            }
+        });
+    }
+
+    // Character counter pour editeur d'edition
+    const eeContent = document.getElementById('ee-article-content');
+    if (eeContent) {
+        eeContent.addEventListener('input', updateEditorCharCount);
+    }
+
+    // Setup elements drag
+    setTimeout(setupElementsDrag, 500);
 });

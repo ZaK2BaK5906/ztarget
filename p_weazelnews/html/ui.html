@@ -345,6 +345,9 @@ Utilisez la barre d'outils pour inserer:
                         <button class="tab-btn active" data-tab="articles" onclick="switchEditorTab('articles')">
                             <i class="fas fa-file-alt"></i> Articles
                         </button>
+                        <button class="tab-btn" data-tab="write" onclick="switchEditorTab('write')">
+                            <i class="fas fa-pen"></i> Rediger
+                        </button>
                         <button class="tab-btn" data-tab="ads" onclick="switchEditorTab('ads')">
                             <i class="fas fa-ad"></i> Pubs
                         </button>
@@ -363,58 +366,144 @@ Utilisez la barre d'outils pour inserer:
                         </div>
                     </div>
 
+                    <!-- Tab Rediger -->
+                    <div class="tab-content" id="tab-write">
+                        <div class="write-section">
+                            <div class="write-form">
+                                <div class="form-group">
+                                    <label><i class="fas fa-heading"></i> Titre</label>
+                                    <input type="text" id="ee-article-title" placeholder="Titre de l'article..." maxlength="200">
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-align-left"></i> Chapeau</label>
+                                    <input type="text" id="ee-article-subtitle" placeholder="Resume (optionnel)..." maxlength="255">
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-tag"></i> Rubrique</label>
+                                    <select id="ee-article-category"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-paragraph"></i> Contenu</label>
+                                    <div class="write-toolbar">
+                                        <button type="button" onclick="insertEditorImage()" title="Image"><i class="fas fa-image"></i></button>
+                                        <button type="button" onclick="insertEditorSeparator()" title="Separateur"><i class="fas fa-grip-lines"></i></button>
+                                        <button type="button" onclick="insertEditorQuote()" title="Citation"><i class="fas fa-quote-left"></i></button>
+                                        <button type="button" onclick="insertEditorSubtitle()" title="Sous-titre"><i class="fas fa-heading"></i></button>
+                                    </div>
+                                    <textarea id="ee-article-content" placeholder="Redigez votre article..." rows="8"></textarea>
+                                    <div class="char-counter"><span id="ee-char-count">0</span> / 10000</div>
+                                </div>
+                                <div class="form-group">
+                                    <label><i class="fas fa-images"></i> Images</label>
+                                    <div class="ee-images-list" id="ee-images-list"></div>
+                                    <button type="button" class="btn-add-img" onclick="addEditorImageUrl()">
+                                        <i class="fas fa-plus"></i> Ajouter une image
+                                    </button>
+                                </div>
+                                <div class="write-actions">
+                                    <button class="btn-write btn-draft" onclick="saveDraftFromEditor()">
+                                        <i class="fas fa-bookmark"></i> Brouillon
+                                    </button>
+                                    <button class="btn-write btn-clear" onclick="clearEditorArticleForm()">
+                                        <i class="fas fa-eraser"></i> Effacer
+                                    </button>
+                                    <button class="btn-write btn-publish" onclick="saveArticleFromEditor()">
+                                        <i class="fas fa-check"></i> Publier
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Tab Publicites -->
                     <div class="tab-content" id="tab-ads">
                         <div class="ads-section">
-                            <h4>Creer une publicite</h4>
+                            <h4><i class="fas fa-bullhorn"></i> Creer une publicite</h4>
                             <div class="ad-creator">
-                                <input type="text" id="ad-business" placeholder="Nom de l'entreprise">
-                                <input type="text" id="ad-slogan" placeholder="Slogan publicitaire">
-                                <input type="text" id="ad-image" placeholder="URL image (optionnel)">
-                                <select id="ad-size">
-                                    <option value="small">Petite (1 colonne)</option>
-                                    <option value="medium">Moyenne (2 colonnes)</option>
-                                    <option value="large">Grande (3 colonnes)</option>
-                                    <option value="banner">Banniere (pleine largeur)</option>
-                                </select>
+                                <div class="ad-form-group">
+                                    <label>Entreprise *</label>
+                                    <input type="text" id="ad-business" placeholder="Nom de l'entreprise">
+                                </div>
+                                <div class="ad-form-group">
+                                    <label>Slogan</label>
+                                    <input type="text" id="ad-slogan" placeholder="Votre accroche publicitaire">
+                                </div>
+                                <div class="ad-form-group">
+                                    <label>Contact</label>
+                                    <input type="text" id="ad-contact" placeholder="Tel, adresse...">
+                                </div>
+                                <div class="ad-form-group">
+                                    <label>Image</label>
+                                    <input type="text" id="ad-image" placeholder="URL de l'image (optionnel)">
+                                </div>
+                                <div class="ad-form-row">
+                                    <div class="ad-form-group half">
+                                        <label>Taille</label>
+                                        <select id="ad-size">
+                                            <option value="small">Petite</option>
+                                            <option value="medium">Moyenne</option>
+                                            <option value="large">Grande</option>
+                                            <option value="banner">Banniere</option>
+                                        </select>
+                                    </div>
+                                    <div class="ad-form-group half">
+                                        <label>Couleur</label>
+                                        <input type="color" id="ad-color" value="#8b7355">
+                                    </div>
+                                </div>
                                 <button class="btn-create-ad" onclick="createAdBlock()">
-                                    <i class="fas fa-plus"></i> Creer le bloc pub
+                                    <i class="fas fa-plus"></i> Creer la publicite
                                 </button>
                             </div>
                         </div>
                         <div class="created-ads" id="created-ads">
-                            <h4>Publicites creees</h4>
-                            <!-- Pubs creees -->
+                            <h4><i class="fas fa-layer-group"></i> Publicites creees</h4>
+                            <p class="empty-hint">Aucune publicite creee</p>
                         </div>
                     </div>
 
                     <!-- Tab Elements -->
                     <div class="tab-content" id="tab-elements">
+                        <h4><i class="fas fa-puzzle-piece"></i> Elements decoratifs</h4>
+                        <p class="elements-hint">Glissez-deposez ces elements dans les colonnes</p>
                         <div class="elements-grid">
-                            <div class="element-item" draggable="true" data-type="separator">
+                            <div class="element-item" draggable="true" data-element-type="separator">
                                 <i class="fas fa-grip-lines"></i>
                                 <span>Separateur</span>
                             </div>
-                            <div class="element-item" draggable="true" data-type="quote">
+                            <div class="element-item" draggable="true" data-element-type="quote">
                                 <i class="fas fa-quote-right"></i>
                                 <span>Citation</span>
                             </div>
-                            <div class="element-item" draggable="true" data-type="image">
+                            <div class="element-item" draggable="true" data-element-type="image">
                                 <i class="fas fa-image"></i>
                                 <span>Image</span>
                             </div>
-                            <div class="element-item" draggable="true" data-type="weather">
+                            <div class="element-item" draggable="true" data-element-type="weather">
                                 <i class="fas fa-cloud-sun"></i>
                                 <span>Meteo</span>
                             </div>
-                            <div class="element-item" draggable="true" data-type="stocks">
+                            <div class="element-item" draggable="true" data-element-type="stocks">
                                 <i class="fas fa-chart-line"></i>
                                 <span>Bourse</span>
                             </div>
-                            <div class="element-item" draggable="true" data-type="spacer">
+                            <div class="element-item" draggable="true" data-element-type="spacer">
                                 <i class="fas fa-arrows-alt-v"></i>
                                 <span>Espace</span>
                             </div>
+                            <div class="element-item" draggable="true" data-element-type="divider">
+                                <i class="fas fa-minus"></i>
+                                <span>Filet</span>
+                            </div>
+                            <div class="element-item" draggable="true" data-element-type="ornament">
+                                <i class="fas fa-star-of-life"></i>
+                                <span>Ornement</span>
+                            </div>
+                        </div>
+                        <div class="elements-actions">
+                            <button class="btn-reset-edition" onclick="resetEdition()">
+                                <i class="fas fa-undo"></i> Reinitialiser l'edition
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -590,6 +679,29 @@ Utilisez la barre d'outils pour inserer:
             </div>
         </div>
     </div>
+
+    <!-- Modal image pour l'editeur d'edition -->
+    <div id="editor-image-modal" class="hidden">
+        <div class="modal-overlay" onclick="closeEditorImageModal()"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <i class="fas fa-image"></i>
+                <span>Ajouter une image</span>
+            </div>
+            <div class="modal-body">
+                <label>URL de l'image</label>
+                <input type="text" id="editor-image-url-input" placeholder="https://i.ibb.co/xxxxx/image.jpg">
+                <p class="modal-hint">Collez l'URL directe de votre image (ibb.co, imgur, etc.)</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="closeEditorImageModal()">Annuler</button>
+                <button class="btn-modal btn-modal-confirm" onclick="confirmEditorImageUrl()">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification editeur -->
+    <div id="editor-notification" class="editor-notification"></div>
 
     <script src="script.js"></script>
 </body>
