@@ -186,6 +186,17 @@ local function AcceptAlert()
     -- Notifier le serveur
     TriggerServerEvent('Z_Dispatch:alertAccepted', alertId, alertData)
 
+    -- Timer pour supprimer le blip automatiquement
+    if Config.BlipDuration and Config.BlipDuration > 0 then
+        SetTimeout(Config.BlipDuration * 1000, function()
+            if activeBlips[alertId] then
+                DebugLog('Blip expire automatiquement - ID: ' .. alertId)
+                RemoveAlertBlip(alertId)
+                activeAlerts[alertId] = nil
+            end
+        end)
+    end
+
     -- Fermer l'alerte
     currentAlert = nil
 
@@ -515,6 +526,30 @@ if Config.Debug then
 
     DebugLog('Commandes de test enregistrees')
 end
+
+-- ============================================
+-- COMMANDE FIN INTERVENTION (toujours active)
+-- ============================================
+
+-- Commande pour finir l'intervention et supprimer le GPS
+RegisterCommand('finintervention', function()
+    local count = 0
+    for alertId, _ in pairs(activeBlips) do
+        RemoveAlertBlip(alertId)
+        activeAlerts[alertId] = nil
+        count = count + 1
+    end
+
+    if count > 0 then
+        PlaySoundFrontend(-1, 'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+        DebugLog('Interventions terminees: ' .. count)
+    end
+end, false)
+
+-- Alias court
+RegisterCommand('fin', function()
+    ExecuteCommand('finintervention')
+end, false)
 
 -- Nettoyage a la deconnexion
 AddEventHandler('onResourceStop', function(resourceName)

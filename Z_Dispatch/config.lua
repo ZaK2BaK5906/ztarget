@@ -6,6 +6,9 @@ Config.Debug = true
 -- Duree d'affichage de l'alerte (en millisecondes)
 Config.AlertDuration = 15000
 
+-- Duree du blip GPS apres avoir accepte (en secondes) - 0 = infini jusqu'a commande
+Config.BlipDuration = 300 -- 5 minutes par defaut
+
 -- Son de l'alerte (true = activer, false = desactiver)
 Config.AlertSound = true
 
