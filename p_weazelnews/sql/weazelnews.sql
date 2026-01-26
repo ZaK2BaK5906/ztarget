@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS `weazelnews_editions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `edition_name` VARCHAR(255) NOT NULL,
     `article_ids` JSON NOT NULL,
+    `ads_data` JSON DEFAULT NULL,
+    `layout_data` JSON DEFAULT NULL,
+    `template` VARCHAR(50) DEFAULT 'classic',
     `printed_by` VARCHAR(100) NOT NULL,
     `identifier` VARCHAR(60) NOT NULL,
     `price` INT(11) DEFAULT 50,
@@ -49,6 +52,11 @@ CREATE TABLE IF NOT EXISTS `weazelnews_editions` (
     INDEX `idx_identifier` (`identifier`),
     INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migration pour les anciennes tables (ajouter les colonnes si elles n'existent pas)
+-- ALTER TABLE `weazelnews_editions` ADD COLUMN IF NOT EXISTS `ads_data` JSON DEFAULT NULL;
+-- ALTER TABLE `weazelnews_editions` ADD COLUMN IF NOT EXISTS `layout_data` JSON DEFAULT NULL;
+-- ALTER TABLE `weazelnews_editions` ADD COLUMN IF NOT EXISTS `template` VARCHAR(50) DEFAULT 'classic';
 
 -- Table du stock des points de vente
 CREATE TABLE IF NOT EXISTS `weazelnews_vendor_stock` (

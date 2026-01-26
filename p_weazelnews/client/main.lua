@@ -216,10 +216,10 @@ local function GetRadialItems()
             end
         },
         {
-            label = 'Imprimer une Edition',
-            icon = 'print',
+            label = 'Creer une Edition',
+            icon = 'newspaper',
             onSelect = function()
-                OpenPrintInterface()
+                OpenEditionEditor()
             end
         }
     }
@@ -963,6 +963,81 @@ RegisterNetEvent('weazelnews:editionPrinted', function(success, editionId)
 end)
 
 -- =====================================
+-- EDITEUR D'EDITION AVANCE
+-- =====================================
+
+local isEditionEditorOpen = false
+
+function OpenEditionEditor()
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    if not CanPrint() then
+        Notify('Grade insuffisant pour creer une edition', 'error')
+        return
+    end
+
+    -- Verifier si dans zone d'impression
+    local playerCoords = GetEntityCoords(PlayerPedId())
+    local printZone = Config.PrintZone
+    local dist = #(playerCoords - printZone.coords)
+
+    if dist > printZone.radius then
+        Notify(Config.Messages.notInPrintZone, 'error')
+        return
+    end
+
+    TriggerServerEvent('weazelnews:getArticlesForEditor')
+end
+
+RegisterNetEvent('weazelnews:openEditionEditor', function(articles)
+    if isEditionEditorOpen then return end
+
+    isEditionEditorOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openEditionEditor',
+        data = {
+            articles = articles,
+            printCost = Config.PrintCost
+        }
+    })
+end)
+
+RegisterNUICallback('closeEditionEditor', function(data, cb)
+    isEditionEditorOpen = false
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
+
+RegisterNUICallback('printAdvancedEdition', function(data, cb)
+    TriggerServerEvent('weazelnews:printAdvancedEdition', {
+        name = data.name,
+        price = data.price,
+        articleIds = data.articleIds,
+        ads = data.ads,
+        layout = data.layout,
+        template = data.template
+    })
+    cb('ok')
+end)
+
+RegisterNetEvent('weazelnews:advancedEditionPrinted', function(success, editionId)
+    if success then
+        Notify(Config.Messages.editionPrinted, 'success')
+        isEditionEditorOpen = false
+        SetNuiFocus(false, false)
+        SendNUIMessage({
+            action = 'closeEditionEditor'
+        })
+    else
+        Notify(Config.Messages.printError, 'error')
+    end
+end)
+
+-- =====================================
 -- SYSTEME DE LECTURE DE JOURNAL (ITEM)
 -- =====================================
 
@@ -1091,6 +1166,16 @@ end
 
 RegisterNUICallback('closeNewspaper', function(data, cb)
     CloseNewspaper()
+    cb('ok')
+end)
+
+RegisterNUICallback('nextPage', function(data, cb)
+    NextPage()
+    cb('ok')
+end)
+
+RegisterNUICallback('prevPage', function(data, cb)
+    PreviousPage()
     cb('ok')
 end)
 

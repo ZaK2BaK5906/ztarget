@@ -623,10 +623,637 @@ function addStock(editionId) {
     }).catch(() => {});
 }
 
+
 // =====================================
-// NUI MESSAGE HANDLER
+// KEYBOARD HANDLER
 // =====================================
 
+document.addEventListener('keydown', function(event) {
+    // Handle Enter in image modal
+    if (!document.getElementById('image-modal').classList.contains('hidden')) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            confirmImageUrl();
+        } else if (event.key === 'Escape') {
+            closeImageModal();
+        }
+        return;
+    }
+
+    // Handle arrow keys for newspaper navigation
+    const newspaperReader = document.getElementById('newspaper-reader');
+    if (newspaperReader && !newspaperReader.classList.contains('hidden')) {
+        if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+            event.preventDefault();
+            navigateNewspaper('next');
+        } else if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+            event.preventDefault();
+            navigateNewspaper('prev');
+        } else if (event.key === 'Escape') {
+            closeNewspaper();
+        }
+        return;
+    }
+
+    if (event.key === 'Escape') {
+        const modals = [
+            { id: 'article-writer', close: closeWriter },
+            { id: 'note-writer', close: closeNoteWriter },
+            { id: 'note-reader', close: closeNoteReader },
+            { id: 'newspaper-shop', close: closeShop },
+            { id: 'print-interface', close: closePrint },
+            { id: 'stock-interface', close: closeStock },
+            { id: 'edition-editor', close: closeEditionEditor }
+        ];
+
+        for (const modal of modals) {
+            const el = document.getElementById(modal.id);
+            if (el && !el.classList.contains('hidden')) {
+                modal.close();
+                break;
+            }
+        }
+    }
+});
+
+function navigateNewspaper(direction) {
+    if (direction === 'next') {
+        fetch(`https://${getResourceName()}/nextPage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        }).catch(() => {});
+    } else {
+        fetch(`https://${getResourceName()}/prevPage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        }).catch(() => {});
+    }
+}
+
+// =====================================
+// CHARACTER COUNTER
+// =====================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const contentArea = document.getElementById('article-content');
+    const charCount = document.getElementById('char-count');
+
+    if (contentArea && charCount) {
+        contentArea.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+            if (this.value.length > 10000) {
+                this.value = this.value.substring(0, 10000);
+                charCount.textContent = '10000';
+            }
+        });
+    }
+});
+
+// =====================================
+// EDITEUR D'EDITION AVANCE
+// =====================================
+
+let editorArticles = [];
+let editorAds = [];
+let editorLayout = {
+    une: null,
+    col1: [],
+    col2: [],
+    col3: [],
+    banner: null
+};
+let selectedElement = null;
+let canvasZoom = 1;
+let printCostBase = 10;
+
+function openEditionEditor(data) {
+    document.getElementById('edition-editor').classList.remove('hidden');
+
+    // Reset
+    editorArticles = data.articles || [];
+    editorAds = [];
+    editorLayout = { une: null, col1: [], col2: [], col3: [], banner: null };
+    selectedElement = null;
+    canvasZoom = 1;
+    printCostBase = data.printCost || 10;
+
+    // Set date
+    const dateText = document.getElementById('canvas-date-text');
+    if (dateText) {
+        dateText.textContent = new Date().toLocaleDateString('fr-FR', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+    }
+
+    // Render articles
+    renderArticlesPool();
+    updateSummary();
+    resetAllZones();
+}
+
+function closeEditionEditor() {
+    document.getElementById('edition-editor').classList.add('hidden');
+    fetch(`https://${getResourceName()}/closeEditionEditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+    }).catch(() => {});
+}
+
+function switchEditorTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === 'tab-' + tabName);
+    });
+}
+
+function renderArticlesPool() {
+    const pool = document.getElementById('articles-pool');
+    if (!pool) return;
+
+    pool.innerHTML = editorArticles.map((article, index) => `
+        <div class="article-card ${isArticleUsed(article.id) ? 'used' : ''}"
+             draggable="true"
+             data-article-id="${article.id}"
+             data-article-index="${index}"
+             ondragstart="dragStart(event, 'article', ${article.id})">
+            <h4>${article.title}</h4>
+            <div class="article-card-meta">
+                <span class="article-card-category">${article.category}</span>
+                <span>${article.author}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function isArticleUsed(articleId) {
+    if (editorLayout.une && editorLayout.une.id === articleId) return true;
+    if (editorLayout.col1.some(item => item.type === 'article' && item.id === articleId)) return true;
+    if (editorLayout.col2.some(item => item.type === 'article' && item.id === articleId)) return true;
+    if (editorLayout.col3.some(item => item.type === 'article' && item.id === articleId)) return true;
+    return false;
+}
+
+function filterArticles() {
+    const search = document.getElementById('article-search').value.toLowerCase();
+    document.querySelectorAll('.article-card').forEach(card => {
+        const title = card.querySelector('h4').textContent.toLowerCase();
+        card.style.display = title.includes(search) ? 'block' : 'none';
+    });
+}
+
+// Drag and Drop
+function dragStart(event, type, id) {
+    event.dataTransfer.setData('type', type);
+    event.dataTransfer.setData('id', id.toString());
+    event.target.classList.add('dragging');
+}
+
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+function dragEnter(event) {
+    event.target.closest('.drop-zone').classList.add('drag-over');
+}
+
+function dragLeave(event) {
+    event.target.closest('.drop-zone').classList.remove('drag-over');
+}
+
+function dropItem(event) {
+    event.preventDefault();
+    const zone = event.target.closest('.drop-zone');
+    zone.classList.remove('drag-over');
+
+    const type = event.dataTransfer.getData('type');
+    const id = parseInt(event.dataTransfer.getData('id'));
+    const zoneName = zone.dataset.zone;
+
+    if (type === 'article') {
+        const article = editorArticles.find(a => a.id === id);
+        if (!article) return;
+
+        if (zoneName === 'une') {
+            editorLayout.une = { type: 'article', id: article.id, data: article };
+        } else if (zoneName.startsWith('col')) {
+            editorLayout[zoneName].push({ type: 'article', id: article.id, data: article });
+        }
+    } else if (type === 'ad') {
+        const ad = editorAds.find(a => a.id === id);
+        if (!ad) return;
+
+        if (zoneName === 'banner') {
+            editorLayout.banner = { type: 'ad', id: ad.id, data: ad };
+        } else if (zoneName.startsWith('col')) {
+            editorLayout[zoneName].push({ type: 'ad', id: ad.id, data: ad });
+        }
+    }
+
+    renderZone(zoneName);
+    renderArticlesPool();
+    updateSummary();
+
+    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+}
+
+function renderZone(zoneName) {
+    const zone = document.querySelector(`.drop-zone[data-zone="${zoneName}"]`);
+    if (!zone) return;
+
+    let content = '';
+
+    if (zoneName === 'une') {
+        if (editorLayout.une) {
+            const item = editorLayout.une;
+            content = createDroppedItemHTML(item, zoneName);
+            zone.classList.add('has-content');
+        } else {
+            content = `<div class="drop-placeholder"><i class="fas fa-newspaper"></i><span>Deposez l'article principal ici</span></div>`;
+            zone.classList.remove('has-content');
+        }
+    } else if (zoneName === 'banner') {
+        if (editorLayout.banner) {
+            const item = editorLayout.banner;
+            content = createDroppedAdHTML(item, zoneName);
+            zone.classList.add('has-content');
+        } else {
+            content = `<div class="drop-placeholder"><i class="fas fa-ad"></i><span>Deposez une publicite banniere ici</span></div>`;
+            zone.classList.remove('has-content');
+        }
+    } else if (zoneName.startsWith('col')) {
+        const items = editorLayout[zoneName];
+        if (items.length > 0) {
+            content = items.map((item, index) => {
+                if (item.type === 'article') {
+                    return createDroppedItemHTML(item, zoneName, index);
+                } else {
+                    return createDroppedAdHTML(item, zoneName, index);
+                }
+            }).join('');
+            zone.classList.add('has-content');
+        } else {
+            content = `<div class="drop-placeholder small"><i class="fas fa-plus"></i><span>Deposer ici</span></div>`;
+            zone.classList.remove('has-content');
+        }
+    }
+
+    zone.innerHTML = content;
+}
+
+function createDroppedItemHTML(item, zoneName, index = 0) {
+    const article = item.data;
+    const preview = article.content ? article.content.substring(0, 150) + '...' : '';
+    return `
+        <div class="dropped-item" onclick="selectElement('${zoneName}', ${index})" data-zone="${zoneName}" data-index="${index}">
+            <h3 class="item-title">${article.title}</h3>
+            <p class="item-preview">${preview}</p>
+            <button class="item-remove" onclick="removeItem(event, '${zoneName}', ${index})"><i class="fas fa-times"></i></button>
+        </div>
+    `;
+}
+
+function createDroppedAdHTML(item, zoneName, index = 0) {
+    const ad = item.data;
+    return `
+        <div class="dropped-ad" onclick="selectElement('${zoneName}', ${index})" data-zone="${zoneName}" data-index="${index}">
+            <span class="ad-label">Publicite</span>
+            <div class="ad-business">${ad.business}</div>
+            <div class="ad-slogan">${ad.slogan}</div>
+            <button class="item-remove" onclick="removeItem(event, '${zoneName}', ${index})"><i class="fas fa-times"></i></button>
+        </div>
+    `;
+}
+
+function removeItem(event, zoneName, index) {
+    event.stopPropagation();
+
+    if (zoneName === 'une') {
+        editorLayout.une = null;
+    } else if (zoneName === 'banner') {
+        editorLayout.banner = null;
+    } else {
+        editorLayout[zoneName].splice(index, 1);
+    }
+
+    renderZone(zoneName);
+    renderArticlesPool();
+    updateSummary();
+}
+
+function selectElement(zoneName, index) {
+    // Deselect previous
+    document.querySelectorAll('.dropped-item.selected, .dropped-ad.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+
+    // Select new
+    const selector = `.drop-zone[data-zone="${zoneName}"] [data-index="${index}"]`;
+    const element = document.querySelector(selector);
+    if (element) {
+        element.classList.add('selected');
+        selectedElement = { zoneName, index };
+        showProperties(zoneName, index);
+    }
+}
+
+function showProperties(zoneName, index) {
+    const container = document.getElementById('properties-content');
+    let item;
+
+    if (zoneName === 'une') {
+        item = editorLayout.une;
+    } else if (zoneName === 'banner') {
+        item = editorLayout.banner;
+    } else {
+        item = editorLayout[zoneName][index];
+    }
+
+    if (!item) {
+        container.innerHTML = `<div class="no-selection"><i class="fas fa-mouse-pointer"></i><p>Selectionnez un element pour modifier ses proprietes</p></div>`;
+        return;
+    }
+
+    if (item.type === 'article') {
+        container.innerHTML = `
+            <div class="property-group">
+                <label>Titre</label>
+                <input type="text" value="${item.data.title}" readonly>
+            </div>
+            <div class="property-group">
+                <label>Auteur</label>
+                <input type="text" value="${item.data.author}" readonly>
+            </div>
+            <div class="property-group">
+                <label>Categorie</label>
+                <input type="text" value="${item.data.category}" readonly>
+            </div>
+        `;
+    } else if (item.type === 'ad') {
+        container.innerHTML = `
+            <div class="property-group">
+                <label>Entreprise</label>
+                <input type="text" value="${item.data.business}" readonly>
+            </div>
+            <div class="property-group">
+                <label>Slogan</label>
+                <input type="text" value="${item.data.slogan}" readonly>
+            </div>
+            <div class="property-group">
+                <label>Taille</label>
+                <input type="text" value="${item.data.size}" readonly>
+            </div>
+        `;
+    }
+}
+
+function resetAllZones() {
+    ['une', 'col1', 'col2', 'col3', 'banner'].forEach(zone => {
+        renderZone(zone);
+    });
+}
+
+// Publicites
+let adIdCounter = 1;
+
+function createAdBlock() {
+    const business = document.getElementById('ad-business').value.trim();
+    const slogan = document.getElementById('ad-slogan').value.trim();
+    const image = document.getElementById('ad-image').value.trim();
+    const size = document.getElementById('ad-size').value;
+
+    if (!business) {
+        shakeElement(document.getElementById('ad-business'));
+        return;
+    }
+
+    const ad = {
+        id: adIdCounter++,
+        business,
+        slogan: slogan || 'Votre partenaire de confiance',
+        image,
+        size
+    };
+
+    editorAds.push(ad);
+    renderCreatedAds();
+
+    // Clear inputs
+    document.getElementById('ad-business').value = '';
+    document.getElementById('ad-slogan').value = '';
+    document.getElementById('ad-image').value = '';
+}
+
+function renderCreatedAds() {
+    const container = document.getElementById('created-ads');
+    container.innerHTML = `<h4>Publicites creees</h4>` + editorAds.map(ad => `
+        <div class="ad-block" draggable="true" ondragstart="dragStart(event, 'ad', ${ad.id})">
+            <h5>${ad.business}</h5>
+            <p>${ad.slogan}</p>
+        </div>
+    `).join('');
+}
+
+// Templates
+function applyTemplate() {
+    const template = document.getElementById('layout-template').value;
+    const grid = document.getElementById('canvas-grid');
+
+    // Reset layout
+    editorLayout.col1 = [];
+    editorLayout.col2 = [];
+    editorLayout.col3 = [];
+
+    switch (template) {
+        case 'classic':
+            grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            document.querySelectorAll('.canvas-column').forEach(col => col.style.display = 'block');
+            break;
+        case 'modern':
+            grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            document.querySelectorAll('.canvas-column').forEach(col => col.style.display = 'block');
+            break;
+        case 'tabloid':
+            grid.style.gridTemplateColumns = '2fr 1fr';
+            document.querySelector('.canvas-column[data-col="3"]').style.display = 'none';
+            break;
+        case 'magazine':
+            grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            document.querySelectorAll('.canvas-column').forEach(col => col.style.display = 'block');
+            break;
+        case 'bulletin':
+            grid.style.gridTemplateColumns = '1fr';
+            document.querySelector('.canvas-column[data-col="2"]').style.display = 'none';
+            document.querySelector('.canvas-column[data-col="3"]').style.display = 'none';
+            break;
+    }
+
+    resetAllZones();
+}
+
+// Zoom
+function zoomCanvas(delta) {
+    canvasZoom = Math.max(0.5, Math.min(1.5, canvasZoom + delta));
+    document.getElementById('newspaper-canvas').style.transform = `scale(${canvasZoom})`;
+    document.getElementById('zoom-level').textContent = Math.round(canvasZoom * 100) + '%';
+}
+
+// Summary
+function updateSummary() {
+    let articleCount = 0;
+    let adCount = 0;
+
+    if (editorLayout.une) articleCount++;
+    if (editorLayout.banner) adCount++;
+
+    ['col1', 'col2', 'col3'].forEach(col => {
+        editorLayout[col].forEach(item => {
+            if (item.type === 'article') articleCount++;
+            else adCount++;
+        });
+    });
+
+    document.getElementById('summary-articles').textContent = articleCount;
+    document.getElementById('summary-ads').textContent = adCount;
+    document.getElementById('summary-elements').textContent = '0';
+    document.getElementById('summary-cost').textContent = '$' + printCostBase;
+}
+
+// Preview
+function previewEdition() {
+    const modal = document.getElementById('preview-modal');
+    const content = document.getElementById('preview-content');
+
+    let html = '<div style="font-family: Libre Baskerville, serif; max-width: 700px; margin: 0 auto;">';
+
+    // Header
+    html += `
+        <div style="text-align: center; border-bottom: 2px solid #1a1a1a; padding-bottom: 15px; margin-bottom: 20px;">
+            <h1 style="font-family: Playfair Display, serif; font-size: 32px; letter-spacing: 3px;">THE WEAZEL GAZETTE</h1>
+        </div>
+    `;
+
+    // Une
+    if (editorLayout.une) {
+        const article = editorLayout.une.data;
+        html += `
+            <div style="margin-bottom: 30px;">
+                <h2 style="font-family: Playfair Display, serif; font-size: 28px; margin-bottom: 10px;">${article.title}</h2>
+                <p style="font-style: italic; color: #666; margin-bottom: 15px;">Par ${article.author} - ${article.category}</p>
+                <p style="line-height: 1.8;">${article.content || ''}</p>
+            </div>
+        `;
+    }
+
+    // Colonnes
+    html += '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">';
+    ['col1', 'col2', 'col3'].forEach(col => {
+        html += '<div>';
+        editorLayout[col].forEach(item => {
+            if (item.type === 'article') {
+                html += `
+                    <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #ddd;">
+                        <h3 style="font-size: 16px; margin-bottom: 8px;">${item.data.title}</h3>
+                        <p style="font-size: 12px; color: #666;">${item.data.content ? item.data.content.substring(0, 200) + '...' : ''}</p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div style="background: #f5f0e1; border: 2px solid #8b7355; padding: 15px; margin-bottom: 15px; text-align: center;">
+                        <div style="font-size: 9px; color: #8b7355; text-transform: uppercase; letter-spacing: 1px;">Publicite</div>
+                        <div style="font-weight: bold; margin-top: 5px;">${item.data.business}</div>
+                        <div style="font-style: italic; font-size: 12px;">${item.data.slogan}</div>
+                    </div>
+                `;
+            }
+        });
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Banner
+    if (editorLayout.banner) {
+        const ad = editorLayout.banner.data;
+        html += `
+            <div style="background: #f5f0e1; border: 2px solid #8b7355; padding: 20px; margin-top: 20px; text-align: center;">
+                <div style="font-size: 9px; color: #8b7355; text-transform: uppercase; letter-spacing: 1px;">Espace Publicitaire</div>
+                <div style="font-size: 20px; font-weight: bold; margin-top: 10px;">${ad.business}</div>
+                <div style="font-style: italic;">${ad.slogan}</div>
+            </div>
+        `;
+    }
+
+    html += '</div>';
+    content.innerHTML = html;
+    modal.classList.remove('hidden');
+}
+
+function closePreview() {
+    document.getElementById('preview-modal').classList.add('hidden');
+}
+
+// Print from editor
+function printFromEditor() {
+    const name = document.getElementById('ee-edition-name').value.trim();
+    const price = parseInt(document.getElementById('ee-price').value) || 50;
+
+    if (!name) {
+        shakeElement(document.getElementById('ee-edition-name'));
+        return;
+    }
+
+    // Collect article IDs
+    const articleIds = [];
+    if (editorLayout.une) articleIds.push(editorLayout.une.id);
+    ['col1', 'col2', 'col3'].forEach(col => {
+        editorLayout[col].forEach(item => {
+            if (item.type === 'article') {
+                articleIds.push(item.id);
+            }
+        });
+    });
+
+    if (articleIds.length === 0) {
+        alert('Ajoutez au moins un article a l\'edition');
+        return;
+    }
+
+    // Collect ads
+    const ads = [];
+    if (editorLayout.banner) ads.push(editorLayout.banner.data);
+    ['col1', 'col2', 'col3'].forEach(col => {
+        editorLayout[col].forEach(item => {
+            if (item.type === 'ad') {
+                ads.push(item.data);
+            }
+        });
+    });
+
+    // Send to server
+    fetch(`https://${getResourceName()}/printAdvancedEdition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            price,
+            articleIds,
+            ads,
+            layout: editorLayout,
+            template: document.getElementById('layout-template').value
+        })
+    }).catch(() => {});
+}
+
+function columnSettings(colNum) {
+    // Future: open column settings modal
+    console.log('Settings for column', colNum);
+}
+
+// Message handler update
 window.addEventListener('message', function(event) {
     const data = event.data;
 
@@ -648,61 +1275,7 @@ window.addEventListener('message', function(event) {
         case 'closePrint': document.getElementById('print-interface').classList.add('hidden'); break;
         case 'openStock': openStock(data.data); break;
         case 'closeStock': document.getElementById('stock-interface').classList.add('hidden'); break;
-    }
-});
-
-// =====================================
-// KEYBOARD HANDLER
-// =====================================
-
-document.addEventListener('keydown', function(event) {
-    // Handle Enter in image modal
-    if (!document.getElementById('image-modal').classList.contains('hidden')) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            confirmImageUrl();
-        } else if (event.key === 'Escape') {
-            closeImageModal();
-        }
-        return;
-    }
-
-    if (event.key === 'Escape') {
-        const modals = [
-            { id: 'article-writer', close: closeWriter },
-            { id: 'note-writer', close: closeNoteWriter },
-            { id: 'note-reader', close: closeNoteReader },
-            { id: 'newspaper-reader', close: closeNewspaper },
-            { id: 'newspaper-shop', close: closeShop },
-            { id: 'print-interface', close: closePrint },
-            { id: 'stock-interface', close: closeStock }
-        ];
-
-        for (const modal of modals) {
-            const el = document.getElementById(modal.id);
-            if (el && !el.classList.contains('hidden')) {
-                modal.close();
-                break;
-            }
-        }
-    }
-});
-
-// =====================================
-// CHARACTER COUNTER
-// =====================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    const contentArea = document.getElementById('article-content');
-    const charCount = document.getElementById('char-count');
-
-    if (contentArea && charCount) {
-        contentArea.addEventListener('input', function() {
-            charCount.textContent = this.value.length;
-            if (this.value.length > 10000) {
-                this.value = this.value.substring(0, 10000);
-                charCount.textContent = '10000';
-            }
-        });
+        case 'openEditionEditor': openEditionEditor(data.data); break;
+        case 'closeEditionEditor': document.getElementById('edition-editor').classList.add('hidden'); break;
     }
 });

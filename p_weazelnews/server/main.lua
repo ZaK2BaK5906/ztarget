@@ -465,6 +465,125 @@ RegisterNetEvent('weazelnews:printEdition', function(editionData)
 end)
 
 -- =====================================
+-- EDITEUR D'EDITION AVANCE
+-- =====================================
+
+RegisterNetEvent('weazelnews:getArticlesForEditor', function()
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+
+    if not xPlayer then return end
+
+    -- Verifier que le joueur est reporter
+    if xPlayer.job.name ~= Config.JobName then return end
+
+    -- Verifier le grade
+    if xPlayer.job.grade < Config.MinGradeForPrint then return end
+
+    -- Recuperer les articles publies avec leur contenu complet
+    MySQL.query('SELECT id, title, subtitle, content, author, category FROM weazelnews_articles WHERE status = ? ORDER BY created_at DESC LIMIT 30', {
+        'published'
+    }, function(results)
+        local articles = {}
+        if results then
+            for _, row in ipairs(results) do
+                table.insert(articles, {
+                    id = row.id,
+                    title = row.title,
+                    subtitle = row.subtitle,
+                    content = row.content,
+                    author = row.author,
+                    category = row.category
+                })
+            end
+        end
+        TriggerClientEvent('weazelnews:openEditionEditor', source, articles)
+    end)
+end)
+
+RegisterNetEvent('weazelnews:printAdvancedEdition', function(editionData)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+
+    if not xPlayer then return end
+
+    -- Verifier que le joueur est reporter
+    if xPlayer.job.name ~= Config.JobName then
+        TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
+        return
+    end
+
+    -- Verifier le grade
+    if xPlayer.job.grade < Config.MinGradeForPrint then
+        TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
+        return
+    end
+
+    -- Verifier l'argent
+    if xPlayer.getMoney() < Config.PrintCost then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = Config.JobLabel,
+            description = Config.Messages.notEnoughMoney,
+            type = 'error'
+        })
+        TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
+        return
+    end
+
+    -- Validation
+    if not editionData.name or editionData.name == '' then
+        TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
+        return
+    end
+
+    if not editionData.articleIds or #editionData.articleIds == 0 then
+        TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
+        return
+    end
+
+    -- Creer l'edition avec layout et pubs
+    local articleIdsJson = json.encode(editionData.articleIds)
+    local adsJson = editionData.ads and json.encode(editionData.ads) or nil
+    local layoutJson = editionData.layout and json.encode(editionData.layout) or nil
+    local printedBy = xPlayer.getName()
+
+    MySQL.insert('INSERT INTO weazelnews_editions (edition_name, article_ids, ads_data, layout_data, template, printed_by, identifier, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
+        editionData.name,
+        articleIdsJson,
+        adsJson,
+        layoutJson,
+        editionData.template or 'classic',
+        printedBy,
+        xPlayer.identifier,
+        editionData.price or Config.DefaultNewspaperPrice
+    }, function(editionId)
+        if editionId then
+            -- Retirer l'argent
+            xPlayer.removeMoney(Config.PrintCost)
+
+            -- Marquer les articles comme imprimes
+            for _, articleId in ipairs(editionData.articleIds) do
+                MySQL.update('UPDATE weazelnews_articles SET status = ? WHERE id = ?', {'printed', articleId})
+            end
+
+            -- Donner l'item journal avec metadata
+            exports.ox_inventory:AddItem(source, 'newspaper', 1, {
+                editionId = editionId,
+                editionName = editionData.name,
+                label = 'Journal - ' .. editionData.name
+            })
+
+            TriggerClientEvent('weazelnews:advancedEditionPrinted', source, true, editionId)
+            print(('[Weazel News] Edition avancee imprimee par %s: %s (Template: %s, Pubs: %d)'):format(
+                printedBy, editionData.name, editionData.template or 'classic', editionData.ads and #editionData.ads or 0
+            ))
+        else
+            TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
+        end
+    end)
+end)
+
+-- =====================================
 -- RECUPERATION DES ARTICLES D'UNE EDITION
 -- =====================================
 

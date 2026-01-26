@@ -317,6 +317,280 @@ Utilisez la barre d'outils pour inserer:
         </div>
     </div>
 
+    <!-- EDITEUR D'EDITION AVANCE -->
+    <div id="edition-editor" class="hidden">
+        <div class="edition-editor-container">
+            <!-- Barre d'outils superieure -->
+            <div class="editor-topbar">
+                <div class="topbar-left">
+                    <i class="fas fa-newspaper"></i>
+                    <span class="editor-title">Editeur d'Edition</span>
+                </div>
+                <div class="topbar-center">
+                    <div class="edition-name-input">
+                        <input type="text" id="ee-edition-name" placeholder="Nom de l'edition...">
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="topbar-btn" onclick="previewEdition()" title="Apercu"><i class="fas fa-eye"></i></button>
+                    <button class="topbar-btn" onclick="saveEditionLayout()" title="Sauvegarder"><i class="fas fa-save"></i></button>
+                    <button class="topbar-btn btn-close" onclick="closeEditionEditor()" title="Fermer"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <div class="editor-main">
+                <!-- Panneau gauche - Articles et elements -->
+                <div class="editor-sidebar left">
+                    <div class="sidebar-tabs">
+                        <button class="tab-btn active" data-tab="articles" onclick="switchEditorTab('articles')">
+                            <i class="fas fa-file-alt"></i> Articles
+                        </button>
+                        <button class="tab-btn" data-tab="ads" onclick="switchEditorTab('ads')">
+                            <i class="fas fa-ad"></i> Pubs
+                        </button>
+                        <button class="tab-btn" data-tab="elements" onclick="switchEditorTab('elements')">
+                            <i class="fas fa-shapes"></i> Elements
+                        </button>
+                    </div>
+
+                    <!-- Tab Articles -->
+                    <div class="tab-content active" id="tab-articles">
+                        <div class="sidebar-search">
+                            <input type="text" id="article-search" placeholder="Rechercher un article..." oninput="filterArticles()">
+                        </div>
+                        <div class="articles-pool" id="articles-pool">
+                            <!-- Articles disponibles seront charges ici -->
+                        </div>
+                    </div>
+
+                    <!-- Tab Publicites -->
+                    <div class="tab-content" id="tab-ads">
+                        <div class="ads-section">
+                            <h4>Creer une publicite</h4>
+                            <div class="ad-creator">
+                                <input type="text" id="ad-business" placeholder="Nom de l'entreprise">
+                                <input type="text" id="ad-slogan" placeholder="Slogan publicitaire">
+                                <input type="text" id="ad-image" placeholder="URL image (optionnel)">
+                                <select id="ad-size">
+                                    <option value="small">Petite (1 colonne)</option>
+                                    <option value="medium">Moyenne (2 colonnes)</option>
+                                    <option value="large">Grande (3 colonnes)</option>
+                                    <option value="banner">Banniere (pleine largeur)</option>
+                                </select>
+                                <button class="btn-create-ad" onclick="createAdBlock()">
+                                    <i class="fas fa-plus"></i> Creer le bloc pub
+                                </button>
+                            </div>
+                        </div>
+                        <div class="created-ads" id="created-ads">
+                            <h4>Publicites creees</h4>
+                            <!-- Pubs creees -->
+                        </div>
+                    </div>
+
+                    <!-- Tab Elements -->
+                    <div class="tab-content" id="tab-elements">
+                        <div class="elements-grid">
+                            <div class="element-item" draggable="true" data-type="separator">
+                                <i class="fas fa-grip-lines"></i>
+                                <span>Separateur</span>
+                            </div>
+                            <div class="element-item" draggable="true" data-type="quote">
+                                <i class="fas fa-quote-right"></i>
+                                <span>Citation</span>
+                            </div>
+                            <div class="element-item" draggable="true" data-type="image">
+                                <i class="fas fa-image"></i>
+                                <span>Image</span>
+                            </div>
+                            <div class="element-item" draggable="true" data-type="weather">
+                                <i class="fas fa-cloud-sun"></i>
+                                <span>Meteo</span>
+                            </div>
+                            <div class="element-item" draggable="true" data-type="stocks">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Bourse</span>
+                            </div>
+                            <div class="element-item" draggable="true" data-type="spacer">
+                                <i class="fas fa-arrows-alt-v"></i>
+                                <span>Espace</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zone centrale - Canvas du journal -->
+                <div class="editor-canvas">
+                    <div class="canvas-controls">
+                        <div class="template-selector">
+                            <label>Modele:</label>
+                            <select id="layout-template" onchange="applyTemplate()">
+                                <option value="classic">Classique (Une + 2 colonnes)</option>
+                                <option value="modern">Moderne (Grille)</option>
+                                <option value="tabloid">Tabloid (Une large)</option>
+                                <option value="magazine">Magazine (3 colonnes)</option>
+                                <option value="bulletin">Bulletin (Simple)</option>
+                            </select>
+                        </div>
+                        <div class="canvas-zoom">
+                            <button onclick="zoomCanvas(-0.1)"><i class="fas fa-search-minus"></i></button>
+                            <span id="zoom-level">100%</span>
+                            <button onclick="zoomCanvas(0.1)"><i class="fas fa-search-plus"></i></button>
+                        </div>
+                    </div>
+                    <div class="canvas-scroll">
+                        <div class="newspaper-canvas" id="newspaper-canvas">
+                            <!-- En-tete du journal -->
+                            <div class="canvas-header">
+                                <div class="canvas-header-top">
+                                    <span class="canvas-date">Edition du <span id="canvas-date-text"></span></span>
+                                    <span class="canvas-price">Prix: $<input type="number" id="ee-price" value="50" min="1" max="500"></span>
+                                </div>
+                                <div class="canvas-masthead">
+                                    <div class="masthead-rule"></div>
+                                    <h1 class="canvas-title">THE WEAZEL GAZETTE</h1>
+                                    <p class="canvas-slogan">"La verite, rien que la verite"</p>
+                                    <div class="masthead-rule"></div>
+                                </div>
+                            </div>
+
+                            <!-- Zone de la Une -->
+                            <div class="canvas-section une-section" id="une-section">
+                                <div class="section-label">LA UNE</div>
+                                <div class="drop-zone une-zone" data-zone="une" ondrop="dropItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                    <div class="drop-placeholder">
+                                        <i class="fas fa-newspaper"></i>
+                                        <span>Deposez l'article principal ici</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Grille de contenu -->
+                            <div class="canvas-grid" id="canvas-grid">
+                                <!-- Colonne 1 -->
+                                <div class="canvas-column" data-col="1">
+                                    <div class="column-header">
+                                        <span>Colonne 1</span>
+                                        <button class="col-settings" onclick="columnSettings(1)"><i class="fas fa-cog"></i></button>
+                                    </div>
+                                    <div class="drop-zone column-zone" data-zone="col1" ondrop="dropItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                        <div class="drop-placeholder small">
+                                            <i class="fas fa-plus"></i>
+                                            <span>Deposer ici</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Colonne 2 -->
+                                <div class="canvas-column" data-col="2">
+                                    <div class="column-header">
+                                        <span>Colonne 2</span>
+                                        <button class="col-settings" onclick="columnSettings(2)"><i class="fas fa-cog"></i></button>
+                                    </div>
+                                    <div class="drop-zone column-zone" data-zone="col2" ondrop="dropItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                        <div class="drop-placeholder small">
+                                            <i class="fas fa-plus"></i>
+                                            <span>Deposer ici</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Colonne 3 -->
+                                <div class="canvas-column" data-col="3">
+                                    <div class="column-header">
+                                        <span>Colonne 3</span>
+                                        <button class="col-settings" onclick="columnSettings(3)"><i class="fas fa-cog"></i></button>
+                                    </div>
+                                    <div class="drop-zone column-zone" data-zone="col3" ondrop="dropItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                        <div class="drop-placeholder small">
+                                            <i class="fas fa-plus"></i>
+                                            <span>Deposer ici</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Zone de publicite banniere -->
+                            <div class="canvas-section ad-banner-section">
+                                <div class="section-label">ESPACE PUBLICITAIRE</div>
+                                <div class="drop-zone banner-zone" data-zone="banner" ondrop="dropItem(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                                    <div class="drop-placeholder">
+                                        <i class="fas fa-ad"></i>
+                                        <span>Deposez une publicite banniere ici</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pied de page -->
+                            <div class="canvas-footer">
+                                <span>Weazel News &copy; 2024 - Tous droits reserves</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panneau droit - Proprietes -->
+                <div class="editor-sidebar right">
+                    <div class="properties-panel">
+                        <h3><i class="fas fa-sliders-h"></i> Proprietes</h3>
+                        <div class="properties-content" id="properties-content">
+                            <div class="no-selection">
+                                <i class="fas fa-mouse-pointer"></i>
+                                <p>Selectionnez un element pour modifier ses proprietes</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="edition-summary">
+                        <h3><i class="fas fa-list-check"></i> Resume</h3>
+                        <div class="summary-content">
+                            <div class="summary-row">
+                                <span>Articles:</span>
+                                <strong id="summary-articles">0</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>Publicites:</span>
+                                <strong id="summary-ads">0</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>Elements:</span>
+                                <strong id="summary-elements">0</strong>
+                            </div>
+                            <div class="summary-divider"></div>
+                            <div class="summary-row total">
+                                <span>Cout impression:</span>
+                                <strong id="summary-cost">$10</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="edition-actions">
+                        <button class="btn-edition btn-preview" onclick="previewEdition()">
+                            <i class="fas fa-eye"></i> Apercu
+                        </button>
+                        <button class="btn-edition btn-print" onclick="printFromEditor()">
+                            <i class="fas fa-print"></i> Imprimer l'edition
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal d'apercu -->
+    <div id="preview-modal" class="hidden">
+        <div class="preview-overlay" onclick="closePreview()"></div>
+        <div class="preview-container">
+            <div class="preview-header">
+                <span>Apercu de l'edition</span>
+                <button onclick="closePreview()">&times;</button>
+            </div>
+            <div class="preview-content" id="preview-content">
+                <!-- Apercu genere dynamiquement -->
+            </div>
+            <div class="preview-footer">
+                <button class="btn-preview-close" onclick="closePreview()">Fermer</button>
+                <button class="btn-preview-print" onclick="printFromEditor()"><i class="fas fa-print"></i> Imprimer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
