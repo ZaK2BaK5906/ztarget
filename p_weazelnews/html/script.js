@@ -1,5 +1,5 @@
 // =====================================
-// WEAZEL NEWS - NUI SCRIPT
+// WEAZEL NEWS - NUI SCRIPT (FIXED)
 // =====================================
 
 let articles = [];
@@ -10,6 +10,18 @@ let selectedArticles = [];
 let categories = [];
 let currentVendorId = null;
 let printCost = 10;
+let imageModalMode = 'list'; // 'list' ou 'inline'
+
+// =====================================
+// UTILITY - GET RESOURCE NAME
+// =====================================
+
+function getResourceName() {
+    if (typeof GetParentResourceName === 'function') {
+        return GetParentResourceName();
+    }
+    return 'p_weazelnews';
+}
 
 // =====================================
 // CAMERA OVERLAY
@@ -28,7 +40,7 @@ function showOverlay(data) {
     const ticker = document.getElementById('ticker');
 
     reporterName.textContent = data.reporterName || 'Reporter';
-    if (logoText) logoText.textContent = data.title || 'WEAZEL NEWS';
+    if (logoText) logoText.textContent = data.title || 'WEAZEL';
     if (data.subtitle) {
         const liveBadgeText = liveBadge.querySelector('span:last-child');
         if (liveBadgeText) liveBadgeText.textContent = data.subtitle;
@@ -75,6 +87,46 @@ function updateDateTime() {
 }
 
 // =====================================
+// IMAGE MODAL (REMPLACE PROMPT)
+// =====================================
+
+function openImageModal(mode) {
+    imageModalMode = mode;
+    document.getElementById('image-modal').classList.remove('hidden');
+    document.getElementById('image-url-input').value = '';
+    setTimeout(() => {
+        document.getElementById('image-url-input').focus();
+    }, 100);
+}
+
+function closeImageModal() {
+    document.getElementById('image-modal').classList.add('hidden');
+}
+
+function confirmImageUrl() {
+    const url = document.getElementById('image-url-input').value.trim();
+    if (!url) {
+        shakeElement(document.getElementById('image-url-input'));
+        return;
+    }
+
+    if (imageModalMode === 'inline') {
+        // Inserer dans le contenu
+        const content = document.getElementById('article-content');
+        const pos = content.selectionStart;
+        const text = content.value;
+        content.value = text.slice(0, pos) + `[IMG:${url}]` + text.slice(pos);
+        content.focus();
+    } else {
+        // Ajouter a la liste
+        articleImages.push(url);
+        renderImagesList();
+    }
+
+    closeImageModal();
+}
+
+// =====================================
 // ARTICLE WRITER
 // =====================================
 
@@ -111,7 +163,7 @@ function closeWriter() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 function publishArticle() {
@@ -120,8 +172,14 @@ function publishArticle() {
     const category = document.getElementById('article-category').value;
     const content = document.getElementById('article-content').value.trim();
 
-    if (!title) { shakeElement(document.getElementById('article-title')); return; }
-    if (!content) { shakeElement(document.getElementById('article-content')); return; }
+    if (!title) {
+        shakeElement(document.getElementById('article-title'));
+        return;
+    }
+    if (!content) {
+        shakeElement(document.getElementById('article-content'));
+        return;
+    }
 
     fetch(`https://${getResourceName()}/publishArticle`, {
         method: 'POST',
@@ -131,7 +189,7 @@ function publishArticle() {
             images: articleImages,
             status: 'published'
         })
-    });
+    }).catch(() => {});
 }
 
 function saveDraft() {
@@ -140,7 +198,10 @@ function saveDraft() {
     const category = document.getElementById('article-category').value;
     const content = document.getElementById('article-content').value.trim();
 
-    if (!title) { shakeElement(document.getElementById('article-title')); return; }
+    if (!title) {
+        shakeElement(document.getElementById('article-title'));
+        return;
+    }
 
     fetch(`https://${getResourceName()}/saveDraft`, {
         method: 'POST',
@@ -150,18 +211,12 @@ function saveDraft() {
             images: articleImages,
             status: 'draft'
         })
-    });
+    }).catch(() => {});
 }
 
 // Editor toolbar functions
 function insertImage() {
-    const url = prompt('Entrez l\'URL de l\'image (ibb.co, imgur, etc.):');
-    if (url) {
-        const content = document.getElementById('article-content');
-        const pos = content.selectionStart;
-        const text = content.value;
-        content.value = text.slice(0, pos) + `[IMG:${url}]` + text.slice(pos);
-    }
+    openImageModal('inline');
 }
 
 function insertSeparator() {
@@ -169,6 +224,7 @@ function insertSeparator() {
     const pos = content.selectionStart;
     const text = content.value;
     content.value = text.slice(0, pos) + '\n---\n' + text.slice(pos);
+    content.focus();
 }
 
 function insertQuote() {
@@ -178,6 +234,7 @@ function insertQuote() {
     const text = content.value;
     const selected = text.slice(pos, end);
     content.value = text.slice(0, pos) + `[QUOTE]${selected || 'Texte de la citation'}[/QUOTE]` + text.slice(end);
+    content.focus();
 }
 
 function insertSubtitle() {
@@ -187,14 +244,11 @@ function insertSubtitle() {
     const text = content.value;
     const selected = text.slice(pos, end);
     content.value = text.slice(0, pos) + `[H2]${selected || 'Titre de section'}[/H2]` + text.slice(end);
+    content.focus();
 }
 
 function addImageUrl() {
-    const url = prompt('Entrez l\'URL de l\'image:');
-    if (url && url.trim()) {
-        articleImages.push(url.trim());
-        renderImagesList();
-    }
+    openImageModal('list');
 }
 
 function removeImage(index) {
@@ -206,8 +260,8 @@ function renderImagesList() {
     const container = document.getElementById('images-list');
     container.innerHTML = articleImages.map((url, i) => `
         <div class="image-item">
-            <div class="preview"><img src="${url}" onerror="this.src=''" alt=""></div>
-            <input type="text" value="${url}" readonly>
+            <div class="preview"><img src="${url}" onerror="this.style.display='none'" alt=""></div>
+            <span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${url.substring(0, 30)}...</span>
             <button class="remove-btn" onclick="removeImage(${i})"><i class="fas fa-trash"></i></button>
         </div>
     `).join('');
@@ -215,7 +269,7 @@ function renderImagesList() {
 
 function shakeElement(element) {
     element.style.animation = 'shake 0.5s ease';
-    element.style.borderColor = '#ff0000';
+    element.style.borderColor = '#8b0000';
     setTimeout(() => {
         element.style.animation = '';
         element.style.borderColor = '';
@@ -239,21 +293,27 @@ function closeNoteWriter() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 function saveNote() {
     const title = document.getElementById('note-title').value.trim();
     const content = document.getElementById('note-content').value.trim();
 
-    if (!title) { shakeElement(document.getElementById('note-title')); return; }
-    if (!content) { shakeElement(document.getElementById('note-content')); return; }
+    if (!title) {
+        shakeElement(document.getElementById('note-title'));
+        return;
+    }
+    if (!content) {
+        shakeElement(document.getElementById('note-content'));
+        return;
+    }
 
     fetch(`https://${getResourceName()}/saveNote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, content })
-    });
+    }).catch(() => {});
 }
 
 // =====================================
@@ -273,7 +333,7 @@ function closeNoteReader() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 // =====================================
@@ -303,7 +363,7 @@ function closeNewspaper() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 function displayArticle(index) {
@@ -318,9 +378,11 @@ function displayArticle(index) {
     // Parse content with special formatting
     document.getElementById('np-article-content').innerHTML = parseArticleContent(article.content);
 
-    const mainArticle = document.getElementById('article-main');
-    mainArticle.style.animation = 'none';
-    setTimeout(() => mainArticle.style.animation = 'fadeIn 0.3s ease', 10);
+    const mainArticle = document.querySelector('.main-article');
+    if (mainArticle) {
+        mainArticle.style.animation = 'none';
+        setTimeout(() => mainArticle.style.animation = 'fadeIn 0.3s ease', 10);
+    }
 }
 
 function parseArticleContent(content) {
@@ -352,14 +414,16 @@ function changePage(data) {
     const direction = data.direction;
 
     const newspaper = document.querySelector('.newspaper');
-    newspaper.classList.add(direction === 'next' ? 'page-turning-next' : 'page-turning-prev');
+    if (newspaper) {
+        newspaper.classList.add(direction === 'next' ? 'page-turning-next' : 'page-turning-prev');
 
-    setTimeout(() => {
-        currentIndex = newIndex;
-        displayArticle(currentIndex);
-        updatePageIndicator();
-        newspaper.classList.remove('page-turning-next', 'page-turning-prev');
-    }, 200);
+        setTimeout(() => {
+            currentIndex = newIndex;
+            displayArticle(currentIndex);
+            updatePageIndicator();
+            newspaper.classList.remove('page-turning-next', 'page-turning-prev');
+        }, 200);
+    }
 }
 
 function updatePageIndicator() {
@@ -387,7 +451,7 @@ function openShop(data) {
             <div class="edition-item" onclick="buyEdition(${ed.id})">
                 <h3>${ed.name}</h3>
                 <div class="edition-info">
-                    <span>${ed.articles} article(s) - ${ed.date}</span>
+                    <span>${ed.articles} article(s)</span>
                     <span class="edition-price">$${ed.price}</span>
                 </div>
             </div>
@@ -401,7 +465,7 @@ function closeShop() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 function buyEdition(editionId) {
@@ -409,7 +473,7 @@ function buyEdition(editionId) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ editionId, vendorId: currentVendorId })
-    });
+    }).catch(() => {});
 }
 
 // =====================================
@@ -427,7 +491,7 @@ function openPrint(data) {
 
     const articlesSelect = document.getElementById('articles-select');
     if (!data.articles || data.articles.length === 0) {
-        articlesSelect.innerHTML = '<p style="color:#666;text-align:center;padding:20px;">Aucun article publie disponible</p>';
+        articlesSelect.innerHTML = '<p style="color:#6b6b6b;text-align:center;padding:20px;font-style:italic;">Aucun article publie disponible</p>';
     } else {
         articlesSelect.innerHTML = data.articles.map(a => `
             <div class="article-select-item" onclick="toggleArticleSelect(${a.id}, this)">
@@ -447,7 +511,7 @@ function closePrint() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 function toggleArticleSelect(articleId, element) {
@@ -475,14 +539,19 @@ function printEdition() {
     const name = document.getElementById('edition-name').value.trim();
     const price = parseInt(document.getElementById('edition-price').value) || 50;
 
-    if (!name) { shakeElement(document.getElementById('edition-name')); return; }
-    if (selectedArticles.length === 0) { alert('Selectionnez au moins un article'); return; }
+    if (!name) {
+        shakeElement(document.getElementById('edition-name'));
+        return;
+    }
+    if (selectedArticles.length === 0) {
+        return;
+    }
 
     fetch(`https://${getResourceName()}/printEdition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, price, articleIds: selectedArticles })
-    });
+    }).catch(() => {});
 }
 
 // =====================================
@@ -542,7 +611,7 @@ function closeStock() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    });
+    }).catch(() => {});
 }
 
 function addStock(editionId) {
@@ -551,7 +620,7 @@ function addStock(editionId) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ editionId, quantity: qty, vendorId: currentVendorId })
-    });
+    }).catch(() => {});
 }
 
 // =====================================
@@ -587,22 +656,35 @@ window.addEventListener('message', function(event) {
 // =====================================
 
 document.addEventListener('keydown', function(event) {
+    // Handle Enter in image modal
+    if (!document.getElementById('image-modal').classList.contains('hidden')) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            confirmImageUrl();
+        } else if (event.key === 'Escape') {
+            closeImageModal();
+        }
+        return;
+    }
+
     if (event.key === 'Escape') {
-        const modals = ['article-writer', 'note-writer', 'note-reader', 'newspaper-reader', 'newspaper-shop', 'print-interface', 'stock-interface'];
-        modals.forEach(id => {
-            const el = document.getElementById(id);
+        const modals = [
+            { id: 'article-writer', close: closeWriter },
+            { id: 'note-writer', close: closeNoteWriter },
+            { id: 'note-reader', close: closeNoteReader },
+            { id: 'newspaper-reader', close: closeNewspaper },
+            { id: 'newspaper-shop', close: closeShop },
+            { id: 'print-interface', close: closePrint },
+            { id: 'stock-interface', close: closeStock }
+        ];
+
+        for (const modal of modals) {
+            const el = document.getElementById(modal.id);
             if (el && !el.classList.contains('hidden')) {
-                switch(id) {
-                    case 'article-writer': closeWriter(); break;
-                    case 'note-writer': closeNoteWriter(); break;
-                    case 'note-reader': closeNoteReader(); break;
-                    case 'newspaper-reader': closeNewspaper(); break;
-                    case 'newspaper-shop': closeShop(); break;
-                    case 'print-interface': closePrint(); break;
-                    case 'stock-interface': closeStock(); break;
-                }
+                modal.close();
+                break;
             }
-        });
+        }
     }
 });
 
@@ -624,14 +706,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-// =====================================
-// UTILITY
-// =====================================
-
-function getResourceName() {
-    if (typeof GetParentResourceName === 'function') {
-        return GetParentResourceName();
-    }
-    return 'p_weazelnews';
-}
