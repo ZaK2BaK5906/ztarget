@@ -1099,7 +1099,8 @@ end)
 -- =====================================
 
 exports('useNewspaper', function(data, slot)
-    local metadata = exports.ox_inventory:GetSlotMetadata(slot)
+    -- data contient deja les infos du slot, incluant metadata
+    local metadata = data.metadata
 
     if metadata and metadata.editionId then
         TriggerServerEvent('weazelnews:getEditionArticles', metadata.editionId)
