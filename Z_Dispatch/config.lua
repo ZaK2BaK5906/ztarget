@@ -12,7 +12,7 @@ Config.AlertSound = true
 -- Touches pour accepter/refuser les alertes
 Config.Keys = {
     accept = 246,   -- Y par defaut
-    refuse = 303    -- X par defaut (U en azerty)
+    refuse = 73     -- X par defaut
 }
 
 -- Couleurs des blips par service

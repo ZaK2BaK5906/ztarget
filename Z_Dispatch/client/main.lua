@@ -55,18 +55,18 @@ local function RemoveAlertBlip(alertId)
     end
 end
 
--- Dessiner du texte a l'ecran
-local function DrawText3D(text, x, y, scale, r, g, b, a)
-    SetTextFont(4)
+-- Dessiner du texte centre
+local function DrawTextUI(text, x, y, scale, r, g, b, a, centered, font)
+    SetTextFont(font or 4)
     SetTextProportional(false)
     SetTextScale(scale, scale)
     SetTextColour(r, g, b, a)
     SetTextDropshadow(0, 0, 0, 0, 255)
-    SetTextEdge(2, 0, 0, 0, 150)
+    SetTextEdge(1, 0, 0, 0, 200)
     SetTextDropShadow()
-    SetTextOutline()
-    SetTextRightJustify(true)
-    SetTextWrap(0.0, x)
+    if centered then
+        SetTextCentre(true)
+    end
     BeginTextCommandDisplayText('STRING')
     AddTextComponentSubstringPlayerName(text)
     EndTextCommandDisplayText(x, y)
@@ -77,49 +77,92 @@ local function DrawRect2D(x, y, width, height, r, g, b, a)
     DrawRect(x, y, width, height, r, g, b, a)
 end
 
--- Afficher la notification custom en haut a droite
+-- Afficher la notification custom en haut a droite - UI MODERNE
 local function DisplayAlertNotification(alertData, timeRemaining)
     local alertConfig = Config.DefaultAlerts[alertData.type] or Config.DefaultAlerts.custom
     local colors = Config.AlertColors[alertData.type] or Config.AlertColors.custom
 
     -- Position en haut a droite
-    local baseX = 0.85
-    local baseY = 0.12
-    local width = 0.25
-    local height = 0.14
+    local baseX = 0.855
+    local baseY = 0.155
+    local width = 0.23
+    local height = 0.17
 
-    -- Fond semi-transparent
-    DrawRect2D(baseX, baseY, width, height, 0, 0, 0, 180)
+    -- Ombre portee
+    DrawRect2D(baseX + 0.003, baseY + 0.004, width, height, 0, 0, 0, 120)
 
-    -- Barre de couleur en haut
-    DrawRect2D(baseX, baseY - height/2 + 0.008, width, 0.015, colors.r, colors.g, colors.b, 255)
+    -- Fond principal gradient effect (plusieurs couches)
+    DrawRect2D(baseX, baseY, width, height, 15, 15, 20, 240)
+    DrawRect2D(baseX, baseY, width, height - 0.002, 25, 25, 35, 220)
 
-    -- Titre de l'alerte
-    DrawText3D(alertConfig.title, baseX + width/2 - 0.01, baseY - height/2 + 0.02, 0.45, colors.r, colors.g, colors.b, 255)
+    -- Bordure gauche coloree (accent)
+    DrawRect2D(baseX - width/2 + 0.003, baseY, 0.006, height, colors.r, colors.g, colors.b, 255)
 
-    -- Message
+    -- Header avec icone type
+    local headerY = baseY - height/2 + 0.025
+    DrawRect2D(baseX, headerY, width - 0.01, 0.035, colors.r, colors.g, colors.b, 40)
+
+    -- Icone dispatch (cercle)
+    DrawRect2D(baseX - width/2 + 0.025, headerY, 0.015, 0.025, colors.r, colors.g, colors.b, 255)
+
+    -- Titre
+    DrawTextUI(alertConfig.title, baseX - width/2 + 0.045, headerY - 0.012, 0.38, colors.r, colors.g, colors.b, 255, false, 4)
+
+    -- Separateur
+    DrawRect2D(baseX, baseY - height/2 + 0.048, width - 0.02, 0.001, 255, 255, 255, 30)
+
+    -- Message principal
     local message = alertData.message or 'Alerte en cours'
-    DrawText3D(message, baseX + width/2 - 0.01, baseY - height/2 + 0.05, 0.35, 255, 255, 255, 255)
+    DrawTextUI(message, baseX, baseY - height/2 + 0.062, 0.33, 255, 255, 255, 255, true, 4)
 
-    -- Lieu
+    -- Lieu avec icone
     if alertData.street then
-        DrawText3D('~b~Lieu: ~w~' .. alertData.street, baseX + width/2 - 0.01, baseY - height/2 + 0.075, 0.3, 255, 255, 255, 255)
+        DrawRect2D(baseX - width/2 + 0.022, baseY - height/2 + 0.088, 0.008, 0.012, 100, 180, 255, 255)
+        DrawTextUI(alertData.street, baseX - width/2 + 0.035, baseY - height/2 + 0.08, 0.28, 180, 200, 255, 255, false, 4)
     end
 
     -- Info supplementaire
     if alertData.info then
-        DrawText3D('~y~Info: ~w~' .. alertData.info, baseX + width/2 - 0.01, baseY - height/2 + 0.095, 0.3, 255, 255, 255, 255)
+        DrawRect2D(baseX - width/2 + 0.022, baseY - height/2 + 0.108, 0.008, 0.012, 255, 200, 100, 255)
+        DrawTextUI(alertData.info, baseX - width/2 + 0.035, baseY - height/2 + 0.10, 0.28, 255, 220, 150, 255, false, 4)
     end
 
-    -- Instructions touches
-    DrawText3D('~g~[Y] Accepter~w~  |  ~r~[X] Refuser', baseX + width/2 - 0.01, baseY + height/2 - 0.025, 0.3, 255, 255, 255, 255)
+    -- Separateur avant boutons
+    DrawRect2D(baseX, baseY + height/2 - 0.045, width - 0.02, 0.001, 255, 255, 255, 30)
 
-    -- Barre de temps restant
+    -- Boutons stylises
+    local btnWidth = 0.085
+    local btnHeight = 0.028
+    local btnY = baseY + height/2 - 0.028
+
+    -- Bouton Accepter (vert)
+    local acceptX = baseX - 0.05
+    DrawRect2D(acceptX, btnY, btnWidth, btnHeight, 40, 167, 69, 220)
+    DrawRect2D(acceptX, btnY - btnHeight/2 + 0.002, btnWidth, 0.004, 60, 200, 90, 255)
+    DrawTextUI("[Y] ACCEPTER", acceptX, btnY - 0.009, 0.26, 255, 255, 255, 255, true, 4)
+
+    -- Bouton Refuser (rouge)
+    local refuseX = baseX + 0.05
+    DrawRect2D(refuseX, btnY, btnWidth, btnHeight, 180, 50, 50, 220)
+    DrawRect2D(refuseX, btnY - btnHeight/2 + 0.002, btnWidth, 0.004, 220, 70, 70, 255)
+    DrawTextUI("[X] REFUSER", refuseX, btnY - 0.009, 0.26, 255, 255, 255, 255, true, 4)
+
+    -- Barre de progression en bas
     local timePercent = timeRemaining / Config.AlertDuration
-    local barWidth = width * 0.9 * timePercent
-    local barX = baseX - (width * 0.9)/2 + barWidth/2
-    DrawRect2D(baseX, baseY + height/2 - 0.008, width * 0.9, 0.008, 50, 50, 50, 200)
-    DrawRect2D(barX, baseY + height/2 - 0.008, barWidth, 0.008, colors.r, colors.g, colors.b, 255)
+    local barFullWidth = width - 0.01
+    local barHeight = 0.006
+    local barY = baseY + height/2 - 0.003
+
+    -- Fond de la barre
+    DrawRect2D(baseX, barY, barFullWidth, barHeight, 40, 40, 50, 200)
+
+    -- Barre de progression (se vide de droite a gauche)
+    local barWidth = barFullWidth * timePercent
+    local barX = baseX - barFullWidth/2 + barWidth/2
+    DrawRect2D(barX, barY, barWidth, barHeight, colors.r, colors.g, colors.b, 255)
+
+    -- Effet de brillance sur la barre
+    DrawRect2D(barX, barY - barHeight/2 + 0.001, barWidth, 0.002, 255, 255, 255, 60)
 end
 
 -- Accepter l'alerte actuelle
