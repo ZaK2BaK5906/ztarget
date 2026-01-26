@@ -10,24 +10,53 @@ let totalArticles = 0;
 // CAMERA OVERLAY
 // =====================================
 
+let dateTimeInterval = null;
+
 function showOverlay(data) {
     const overlay = document.getElementById('camera-overlay');
     const reporterName = document.getElementById('reporter-name');
+    const liveBadge = document.querySelector('.live-badge');
+    const recIndicator = document.querySelector('.rec-indicator');
+    const breakingNews = document.querySelector('.breaking-news');
+    const corners = document.querySelectorAll('.corner');
+    const logoText = document.querySelector('.logo-text');
+    const logoNews = document.querySelector('.logo-news');
+    const ticker = document.getElementById('ticker');
 
+    // Mettre a jour les textes
     reporterName.textContent = data.reporterName || 'Reporter';
+    if (logoText) logoText.textContent = data.title || 'WEAZEL NEWS';
+    if (data.subtitle) {
+        const liveBadgeText = liveBadge.querySelector('span:last-child');
+        if (liveBadgeText) liveBadgeText.textContent = data.subtitle;
+    }
+    if (ticker && data.ticker) ticker.textContent = data.ticker;
+
+    // Gerer la visibilite des elements
+    if (liveBadge) liveBadge.style.display = data.showLiveBadge !== false ? 'flex' : 'none';
+    if (recIndicator) recIndicator.style.display = data.showRecIndicator !== false ? 'flex' : 'none';
+    if (breakingNews) breakingNews.style.display = data.showTicker !== false ? 'flex' : 'none';
+    corners.forEach(corner => {
+        corner.style.display = data.showCorners !== false ? 'block' : 'none';
+    });
 
     overlay.classList.remove('hidden');
 
     // Update datetime
-    if (data.showDateTime) {
+    if (dateTimeInterval) clearInterval(dateTimeInterval);
+    if (data.showDateTime !== false) {
         updateDateTime();
-        setInterval(updateDateTime, 1000);
+        dateTimeInterval = setInterval(updateDateTime, 1000);
     }
 }
 
 function hideOverlay() {
     const overlay = document.getElementById('camera-overlay');
     overlay.classList.add('hidden');
+    if (dateTimeInterval) {
+        clearInterval(dateTimeInterval);
+        dateTimeInterval = null;
+    }
 }
 
 function updateDateTime() {
@@ -69,7 +98,7 @@ function closeWriter() {
     const writer = document.getElementById('article-writer');
     writer.classList.add('hidden');
 
-    fetch(`https://${GetParentResourceName()}/closeWriter`, {
+    fetch(`https://${getResourceName()}/closeWriter`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -91,7 +120,7 @@ function publishArticle() {
         return;
     }
 
-    fetch(`https://${GetParentResourceName()}/publishArticle`, {
+    fetch(`https://${getResourceName()}/publishArticle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,7 +189,7 @@ function closeNewspaper() {
     const reader = document.getElementById('newspaper-reader');
     reader.classList.add('hidden');
 
-    fetch(`https://${GetParentResourceName()}/closeNewspaper`, {
+    fetch(`https://${getResourceName()}/closeNewspaper`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -263,8 +292,12 @@ document.addEventListener('keydown', function(event) {
 // UTILITY FUNCTIONS
 // =====================================
 
-function GetParentResourceName() {
-    return window.GetParentResourceName ? window.GetParentResourceName() : 'p_weazelnews';
+function getResourceName() {
+    // FiveM provides GetParentResourceName as a global function
+    if (typeof GetParentResourceName === 'function') {
+        return GetParentResourceName();
+    }
+    return 'p_weazelnews';
 }
 
 // Add shake animation

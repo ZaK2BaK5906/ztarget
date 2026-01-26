@@ -19,6 +19,21 @@ local cameraOverlayActive = false
 local cachedArticles = {}
 local currentArticleIndex = 1
 
+-- Blips pour les vendeurs (a supprimer quand on quitte le job)
+local vendorBlips = {}
+
+-- Configuration overlay personnalisee (peut etre changee par le patron)
+local overlayConfig = {
+    title = Config.CameraOverlay.defaultTitle,
+    subtitle = Config.CameraOverlay.defaultSubtitle,
+    ticker = Config.CameraOverlay.defaultTicker,
+    showDateTime = Config.CameraOverlay.showDateTime,
+    showLiveBadge = Config.CameraOverlay.showLiveBadge,
+    showRecIndicator = Config.CameraOverlay.showRecIndicator,
+    showTicker = Config.CameraOverlay.showTicker,
+    showCorners = Config.CameraOverlay.showCorners
+}
+
 -- =====================================
 -- FONCTIONS UTILITAIRES
 -- =====================================
@@ -57,6 +72,42 @@ local function HasReporterJob()
     return PlayerData.job.name == Config.JobName
 end
 
+local function CanConfigureOverlay()
+    if not PlayerData.job then return false end
+    if PlayerData.job.name ~= Config.JobName then return false end
+    return PlayerData.job.grade >= Config.MinGradeForOverlayConfig
+end
+
+-- =====================================
+-- GESTION DES BLIPS VENDEURS (JOB ONLY)
+-- =====================================
+
+local function CreateVendorBlips()
+    -- Supprimer les anciens blips
+    for _, blip in ipairs(vendorBlips) do
+        if DoesBlipExist(blip) then
+            RemoveBlip(blip)
+        end
+    end
+    vendorBlips = {}
+
+    -- Creer les blips seulement si reporter
+    if isReporter then
+        for i, vendor in ipairs(Config.NewspaperVendors) do
+            local blip = AddBlipForCoord(vendor.coords.x, vendor.coords.y, vendor.coords.z)
+            SetBlipSprite(blip, Config.Blips.vendorSprite)
+            SetBlipDisplay(blip, 4)
+            SetBlipScale(blip, Config.Blips.scale)
+            SetBlipColour(blip, Config.Blips.vendorColor)
+            SetBlipAsShortRange(blip, true)
+            BeginTextCommandSetBlipName('STRING')
+            AddTextEntry('weazelnews_vendor_' .. i, vendor.label)
+            EndTextCommandSetBlipName(blip)
+            table.insert(vendorBlips, blip)
+        end
+    end
+end
+
 -- =====================================
 -- GESTION DU JOB
 -- =====================================
@@ -65,12 +116,14 @@ RegisterNetEvent('esx:setJob', function(job)
     PlayerData.job = job
     isReporter = job.name == Config.JobName
     UpdateRadialMenu()
+    CreateVendorBlips()
 end)
 
 RegisterNetEvent('esx:playerLoaded', function(xPlayer)
     PlayerData = xPlayer
     isReporter = PlayerData.job and PlayerData.job.name == Config.JobName
     UpdateRadialMenu()
+    CreateVendorBlips()
 end)
 
 AddEventHandler('onResourceStart', function(resourceName)
@@ -82,6 +135,7 @@ AddEventHandler('onResourceStart', function(resourceName)
     end
     Wait(1000)
     UpdateRadialMenu()
+    CreateVendorBlips()
 end)
 
 -- =====================================
@@ -103,9 +157,9 @@ function UpdateRadialMenu()
     end
 end
 
-lib.registerRadial({
-    id = 'weazelnews_submenu',
-    items = {
+-- Construire les items du menu radial
+local function GetRadialItems()
+    local items = {
         {
             label = 'Sortir le Micro',
             icon = 'microphone',
@@ -117,7 +171,7 @@ lib.registerRadial({
             label = 'Camera Live',
             icon = 'video',
             onSelect = function()
-                ToggleCamera()
+                OpenCameraMenu()
             end
         },
         {
@@ -135,7 +189,121 @@ lib.registerRadial({
             end
         }
     }
+
+    return items
+end
+
+lib.registerRadial({
+    id = 'weazelnews_submenu',
+    items = GetRadialItems()
 })
+
+-- =====================================
+-- MENU CAMERA (avec config overlay)
+-- =====================================
+
+function OpenCameraMenu()
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    local options = {
+        {
+            title = isCameraActive and 'Ranger la Camera' or 'Sortir la Camera',
+            icon = 'video',
+            onSelect = function()
+                ToggleCamera()
+            end
+        }
+    }
+
+    -- Ajouter option config si grade suffisant
+    if CanConfigureOverlay() then
+        table.insert(options, {
+            title = 'Configurer l\'Overlay',
+            description = 'Personnaliser l\'affichage de la camera',
+            icon = 'sliders',
+            onSelect = function()
+                OpenOverlayConfig()
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'weazelnews_camera_menu',
+        title = 'Camera Weazel News',
+        options = options
+    })
+
+    lib.showContext('weazelnews_camera_menu')
+end
+
+function OpenOverlayConfig()
+    local input = lib.inputDialog('Configuration Overlay', {
+        {
+            type = 'input',
+            label = 'Titre principal',
+            default = overlayConfig.title,
+            required = true
+        },
+        {
+            type = 'input',
+            label = 'Sous-titre',
+            default = overlayConfig.subtitle,
+            required = true
+        },
+        {
+            type = 'input',
+            label = 'Texte du ticker (bandeau)',
+            default = overlayConfig.ticker,
+            required = false
+        },
+        {
+            type = 'checkbox',
+            label = 'Afficher la date/heure',
+            checked = overlayConfig.showDateTime
+        },
+        {
+            type = 'checkbox',
+            label = 'Afficher le badge EN DIRECT',
+            checked = overlayConfig.showLiveBadge
+        },
+        {
+            type = 'checkbox',
+            label = 'Afficher l\'indicateur REC',
+            checked = overlayConfig.showRecIndicator
+        },
+        {
+            type = 'checkbox',
+            label = 'Afficher le ticker (bandeau)',
+            checked = overlayConfig.showTicker
+        },
+        {
+            type = 'checkbox',
+            label = 'Afficher les coins',
+            checked = overlayConfig.showCorners
+        }
+    })
+
+    if input then
+        overlayConfig.title = input[1]
+        overlayConfig.subtitle = input[2]
+        overlayConfig.ticker = input[3] or overlayConfig.ticker
+        overlayConfig.showDateTime = input[4]
+        overlayConfig.showLiveBadge = input[5]
+        overlayConfig.showRecIndicator = input[6]
+        overlayConfig.showTicker = input[7]
+        overlayConfig.showCorners = input[8]
+
+        Notify('Configuration de l\'overlay mise a jour', 'success')
+
+        -- Si la camera est active, mettre a jour l'overlay
+        if isCameraActive then
+            EnableCameraOverlay()
+        end
+    end
+end
 
 -- =====================================
 -- SYSTEME DE MICROPHONE
@@ -153,6 +321,7 @@ function ToggleMicrophone()
     end
 
     local ped = PlayerPedId()
+    local prop = Config.Props.microphone
 
     if isMicOut then
         -- Ranger le micro
@@ -165,11 +334,16 @@ function ToggleMicrophone()
         Notify(Config.Messages.micOff, 'info')
     else
         -- Sortir le micro
-        local propHash = LoadModel(Config.Props.microphone)
-        local boneIndex = GetPedBoneIndex(ped, 28422) -- Main droite
+        local propHash = LoadModel(prop.model)
+        local boneIndex = GetPedBoneIndex(ped, prop.bone)
 
         activeMic = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
-        AttachEntityToEntity(activeMic, ped, boneIndex, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, false, true, 1, true)
+        AttachEntityToEntity(
+            activeMic, ped, boneIndex,
+            prop.offset.x, prop.offset.y, prop.offset.z,
+            prop.rotation.x, prop.rotation.y, prop.rotation.z,
+            true, true, false, true, 1, true
+        )
 
         LoadAnimDict(Config.Animations.microphone.dict)
         TaskPlayAnim(ped, Config.Animations.microphone.dict, Config.Animations.microphone.anim, 8.0, -8.0, -1, Config.Animations.microphone.flag, 0, false, false, false)
@@ -205,6 +379,7 @@ function ToggleCamera()
     end
 
     local ped = PlayerPedId()
+    local prop = Config.Props.camera
 
     if isCameraActive then
         -- Ranger la camera
@@ -218,11 +393,16 @@ function ToggleCamera()
         Notify(Config.Messages.cameraOff, 'info')
     else
         -- Sortir la camera
-        local propHash = LoadModel(Config.Props.camera)
-        local boneIndex = GetPedBoneIndex(ped, 28422) -- Main droite
+        local propHash = LoadModel(prop.model)
+        local boneIndex = GetPedBoneIndex(ped, prop.bone)
 
         activeCamera = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
-        AttachEntityToEntity(activeCamera, ped, boneIndex, 0.08, 0.01, -0.01, -120.0, 90.0, 0.0, true, true, false, true, 1, true)
+        AttachEntityToEntity(
+            activeCamera, ped, boneIndex,
+            prop.offset.x, prop.offset.y, prop.offset.z,
+            prop.rotation.x, prop.rotation.y, prop.rotation.z,
+            true, true, false, true, 1, true
+        )
 
         LoadAnimDict(Config.Animations.camera.dict)
         TaskPlayAnim(ped, Config.Animations.camera.dict, Config.Animations.camera.anim, 8.0, -8.0, -1, Config.Animations.camera.flag, 0, false, false, false)
@@ -248,9 +428,14 @@ function EnableCameraOverlay()
     SendNUIMessage({
         action = 'showOverlay',
         data = {
-            title = Config.CameraOverlay.text,
-            subtitle = Config.CameraOverlay.subtext,
-            showDateTime = Config.CameraOverlay.showDateTime,
+            title = overlayConfig.title,
+            subtitle = overlayConfig.subtitle,
+            ticker = overlayConfig.ticker,
+            showDateTime = overlayConfig.showDateTime,
+            showLiveBadge = overlayConfig.showLiveBadge,
+            showRecIndicator = overlayConfig.showRecIndicator,
+            showTicker = overlayConfig.showTicker,
+            showCorners = overlayConfig.showCorners,
             reporterName = PlayerData.firstName and (PlayerData.firstName .. ' ' .. PlayerData.lastName) or 'Reporter'
         }
     })
@@ -388,13 +573,19 @@ function OpenNewspaper(articles)
     currentArticleIndex = 1
 
     local ped = PlayerPedId()
+    local prop = Config.Props.newspaper
 
     -- Creer le prop journal
-    local propHash = LoadModel(Config.Props.newspaper)
-    local boneIndex = GetPedBoneIndex(ped, 28422)
+    local propHash = LoadModel(prop.model)
+    local boneIndex = GetPedBoneIndex(ped, prop.bone)
 
     activeNewspaper = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
-    AttachEntityToEntity(activeNewspaper, ped, boneIndex, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, false, true, 1, true)
+    AttachEntityToEntity(
+        activeNewspaper, ped, boneIndex,
+        prop.offset.x, prop.offset.y, prop.offset.z,
+        prop.rotation.x, prop.rotation.y, prop.rotation.z,
+        true, true, false, true, 1, true
+    )
 
     -- Animation de lecture
     LoadAnimDict(Config.Animations.reading.dict)
@@ -508,23 +699,13 @@ RegisterNetEvent('weazelnews:openNewspaperWithArticles', function(articles)
 end)
 
 -- =====================================
--- POINTS DE VENTE DE JOURNAUX
+-- POINTS DE VENTE DE JOURNAUX (ox_target seulement, pas de blip global)
 -- =====================================
 
 CreateThread(function()
     Wait(1000)
 
     for _, vendor in ipairs(Config.NewspaperVendors) do
-        local blip = AddBlipForCoord(vendor.coords.x, vendor.coords.y, vendor.coords.z)
-        SetBlipSprite(blip, 184)
-        SetBlipDisplay(blip, 4)
-        SetBlipScale(blip, 0.8)
-        SetBlipColour(blip, 47) -- Orange
-        SetBlipAsShortRange(blip, true)
-        BeginTextCommandSetBlipName('STRING')
-        AddTextEntry('weazelnews_vendor', 'Journaux Weazel News')
-        EndTextCommandSetBlipName(blip)
-
         exports.ox_target:addSphereZone({
             coords = vendor.coords,
             radius = 1.5,
@@ -543,17 +724,17 @@ CreateThread(function()
 end)
 
 -- =====================================
--- BLIP QG WEAZEL NEWS
+-- BLIP QG WEAZEL NEWS (VISIBLE POUR TOUS)
 -- =====================================
 
 CreateThread(function()
     Wait(1000)
 
     local blip = AddBlipForCoord(Config.WeazelHQ.coords.x, Config.WeazelHQ.coords.y, Config.WeazelHQ.coords.z)
-    SetBlipSprite(blip, 184)
+    SetBlipSprite(blip, Config.Blips.hqSprite)
     SetBlipDisplay(blip, 4)
-    SetBlipScale(blip, 1.0)
-    SetBlipColour(blip, 47)
+    SetBlipScale(blip, Config.Blips.hqScale)
+    SetBlipColour(blip, Config.Blips.hqColor)
     SetBlipAsShortRange(blip, true)
     BeginTextCommandSetBlipName('STRING')
     AddTextEntry('weazelnews_hq', 'QG Weazel News')
@@ -571,6 +752,13 @@ AddEventHandler('onResourceStop', function(resourceName)
     if activeMic then DeleteEntity(activeMic) end
     if activeCamera then DeleteEntity(activeCamera) end
     if activeNewspaper then DeleteEntity(activeNewspaper) end
+
+    -- Supprimer les blips vendeurs
+    for _, blip in ipairs(vendorBlips) do
+        if DoesBlipExist(blip) then
+            RemoveBlip(blip)
+        end
+    end
 
     -- Fermer les NUI
     SetNuiFocus(false, false)

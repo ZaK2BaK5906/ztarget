@@ -21,18 +21,57 @@ Config.ArticleLifetime = 7
 -- Nombre max d'articles par journal
 Config.MaxArticlesPerNewspaper = 5
 
--- Props
+-- Props avec position et rotation configurables
 Config.Props = {
-    microphone = 'p_ing_microphonel_01',
-    camera = 'prop_v_cam_01',
-    newspaper = 'prop_cliff_paper'
+    microphone = {
+        model = 'p_ing_microphonel_01',
+        bone = 28422, -- Main droite
+        offset = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        },
+        rotation = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        }
+    },
+    camera = {
+        model = 'prop_v_cam_01',
+        bone = 28422, -- Main droite
+        offset = {
+            x = 0.1,
+            y = 0.05,
+            z = 0.0
+        },
+        rotation = {
+            x = -90.0,
+            y = 0.0,
+            z = 0.0
+        }
+    },
+    newspaper = {
+        model = 'prop_cliff_paper',
+        bone = 28422,
+        offset = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        },
+        rotation = {
+            x = 0.0,
+            y = 0.0,
+            z = 0.0
+        }
+    }
 }
 
 -- Animations
 Config.Animations = {
     microphone = {
-        dict = 'missheistdockssetup1hardhat@',
-        anim = 'idle',
+        dict = 'missfbi3_party_d',
+        anim = 'yoursfella_mic_idle',
         flag = 49
     },
     camera = {
@@ -57,12 +96,19 @@ Config.Animations = {
     }
 }
 
--- Overlay camera
+-- Overlay camera - Options par defaut (peuvent etre changees en jeu par le patron)
 Config.CameraOverlay = {
     enabled = true,
-    text = 'WEAZEL NEWS',
-    subtext = 'EN DIRECT',
-    showDateTime = true
+    -- Textes personnalisables
+    defaultTitle = 'WEAZEL NEWS',
+    defaultSubtitle = 'EN DIRECT',
+    defaultTicker = 'Los Santos - Weazel News, votre source d\'information numero 1',
+    -- Options d'affichage
+    showDateTime = true,
+    showLiveBadge = true,
+    showRecIndicator = true,
+    showTicker = true,
+    showCorners = true
 }
 
 -- Keybinds
@@ -74,14 +120,24 @@ Config.Keys = {
     closeNewspaper = 'BACKSPACE' -- Fermer le journal
 }
 
--- Points de vente de journaux (boites aux lettres)
+-- Configuration des blips
+Config.Blips = {
+    scale = 0.5, -- Taille des blips
+    vendorSprite = 184,
+    vendorColor = 47, -- Orange
+    hqSprite = 184,
+    hqColor = 47,
+    hqScale = 0.7 -- Blip QG un peu plus grand
+}
+
+-- Points de vente de journaux (boites aux lettres) - VISIBLE UNIQUEMENT POUR LE JOB
 Config.NewspaperVendors = {
     {coords = vector3(-1037.0, -2733.0, 20.0), label = 'Boite aux lettres'},
     {coords = vector3(428.0, -806.0, 29.0), label = 'Boite aux lettres - Legion Square'},
     {coords = vector3(-538.0, -188.0, 38.0), label = 'Boite aux lettres - Vinewood'},
 }
 
--- QG Weazel News
+-- QG Weazel News - VISIBLE POUR TOUT LE MONDE
 Config.WeazelHQ = {
     coords = vector3(-598.0, -930.0, 23.0),
     radius = 50.0
@@ -100,3 +156,6 @@ Config.Messages = {
     newspaperReceived = 'Vous avez recu un journal',
     notEnoughMoney = 'Vous n\'avez pas assez d\'argent'
 }
+
+-- Grade minimum pour configurer l'overlay (0 = tous, 3 = redacteur en chef, 4 = directeur)
+Config.MinGradeForOverlayConfig = 3
