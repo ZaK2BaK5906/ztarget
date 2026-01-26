@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weazel News</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Playfair+Display:wght@700;900&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- OVERLAY CAMERA LIVE -->
+    <div id="camera-overlay" class="hidden">
+        <div class="overlay-top">
+            <div class="live-badge">
+                <span class="live-dot"></span>
+                <span>EN DIRECT</span>
+            </div>
+            <div class="weazel-logo">
+                <span class="logo-text">WEAZEL</span>
+                <span class="logo-news">NEWS</span>
+            </div>
+        </div>
+        <div class="overlay-bottom">
+            <div class="info-bar">
+                <div class="reporter-name" id="reporter-name">Reporter</div>
+                <div class="datetime" id="datetime"></div>
+            </div>
+            <div class="breaking-news">
+                <span class="breaking-label">BREAKING NEWS</span>
+                <span class="ticker" id="ticker">Los Santos - Weazel News, votre source d'information numero 1</span>
+            </div>
+        </div>
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+        <div class="rec-indicator">
+            <span class="rec-dot"></span>
+            <span>REC</span>
+        </div>
+    </div>
+
+    <!-- EDITEUR D'ARTICLES -->
+    <div id="article-writer" class="hidden">
+        <div class="writer-container">
+            <div class="writer-header">
+                <div class="writer-logo">
+                    <span class="logo-text">WEAZEL</span>
+                    <span class="logo-news">NEWS</span>
+                </div>
+                <h2>Rediger un Article</h2>
+                <button class="close-btn" onclick="closeWriter()">&times;</button>
+            </div>
+            <div class="writer-body">
+                <div class="form-group">
+                    <label for="article-title">Titre de l'article</label>
+                    <input type="text" id="article-title" placeholder="Entrez un titre accrocheur..." maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="article-category">Categorie</label>
+                    <select id="article-category">
+                        <option value="Actualites">Actualites</option>
+                        <option value="Politique">Politique</option>
+                        <option value="Economie">Economie</option>
+                        <option value="Sport">Sport</option>
+                        <option value="Faits Divers">Faits Divers</option>
+                        <option value="Culture">Culture</option>
+                        <option value="Meteo">Meteo</option>
+                        <option value="Interview">Interview</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="article-content">Contenu de l'article</label>
+                    <textarea id="article-content" placeholder="Redigez votre article ici..." rows="12"></textarea>
+                    <div class="char-count"><span id="char-count">0</span> / 5000 caracteres</div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-cancel" onclick="closeWriter()">Annuler</button>
+                    <button class="btn btn-publish" onclick="publishArticle()">Publier l'article</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LECTEUR DE JOURNAL -->
+    <div id="newspaper-reader" class="hidden">
+        <div class="newspaper-container">
+            <div class="newspaper">
+                <div class="newspaper-header">
+                    <div class="newspaper-date" id="newspaper-date"></div>
+                    <div class="newspaper-title">
+                        <span class="title-weazel">WEAZEL</span>
+                        <span class="title-news">NEWS</span>
+                    </div>
+                    <div class="newspaper-price">$50 | Los Santos</div>
+                </div>
+                <div class="newspaper-content">
+                    <div class="article-main" id="article-main">
+                        <h1 class="article-title" id="np-article-title">Titre de l'article</h1>
+                        <div class="article-meta">
+                            <span class="article-author" id="np-article-author">Par Auteur</span>
+                            <span class="article-category" id="np-article-category">Categorie</span>
+                        </div>
+                        <div class="article-text" id="np-article-content">
+                            Contenu de l'article...
+                        </div>
+                    </div>
+                </div>
+                <div class="newspaper-footer">
+                    <div class="page-indicator">
+                        <span id="current-page">1</span> / <span id="total-pages">1</span>
+                    </div>
+                    <div class="page-controls">
+                        <span class="key-hint">[&larr;] Page precedente</span>
+                        <span class="key-hint">[&rarr;] Page suivante</span>
+                        <span class="key-hint">[BACKSPACE] Fermer</span>
+                    </div>
+                </div>
+            </div>
+            <div class="page-turn-effect" id="page-turn"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
