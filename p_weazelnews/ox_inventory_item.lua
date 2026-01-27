@@ -3,12 +3,14 @@
 -- =====================================
 
 --[[
+    IMPORTANT: stack = false pour que chaque journal soit unique !
+
     Ajoutez cette ligne dans votre fichier ox_inventory/data/items.lua :
 
     ['newspaper'] = {
         label = 'Journal Weazel News',
         weight = 100,
-        stack = true,
+        stack = false,
         close = true,
         description = 'Un journal contenant les dernieres actualites de Los Santos',
         client = {
@@ -21,7 +23,7 @@
     "newspaper": {
         "label": "Journal Weazel News",
         "weight": 100,
-        "stack": true,
+        "stack": false,
         "close": true,
         "description": "Un journal contenant les dernieres actualites de Los Santos",
         "client": {
@@ -29,4 +31,6 @@
         }
     }
 
+    NOTE: Chaque journal a maintenant un numero de serie unique (serial)
+    pour s'assurer qu'ils ne se melangent pas dans l'inventaire.
 ]]

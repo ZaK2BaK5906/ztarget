@@ -502,10 +502,11 @@ RegisterNetEvent('weazelnews:printEdition', function(editionData)
                 MySQL.update('UPDATE weazelnews_articles SET status = ? WHERE id = ?', {'printed', articleId})
             end
 
-            -- Donner l'item journal avec metadata
+            -- Donner l'item journal avec metadata unique
             exports.ox_inventory:AddItem(source, 'newspaper', 1, {
                 editionId = editionId,
                 editionName = editionData.name,
+                serial = editionId .. '-' .. os.time() .. '-1',
                 label = 'Journal - ' .. editionData.name
             })
 
@@ -720,12 +721,15 @@ RegisterNetEvent('weazelnews:printAdvancedEdition', function(editionData)
                 MySQL.update('UPDATE weazelnews_articles SET status = ? WHERE id = ?', {'printed', articleId})
             end
 
-            -- Donner les journaux avec metadata (quantite)
-            exports.ox_inventory:AddItem(source, 'newspaper', quantity, {
-                editionId = editionId,
-                editionName = editionData.name,
-                label = 'Journal - ' .. editionData.name
-            })
+            -- Donner les journaux avec metadata unique pour chaque exemplaire
+            for i = 1, quantity do
+                exports.ox_inventory:AddItem(source, 'newspaper', 1, {
+                    editionId = editionId,
+                    editionName = editionData.name,
+                    serial = editionId .. '-' .. os.time() .. '-' .. i,
+                    label = 'Journal - ' .. editionData.name
+                })
+            end
 
             -- Envoyer le webhook avec tous les articles
             local placeholders = {}
@@ -906,10 +910,11 @@ RegisterNetEvent('weazelnews:buyEdition', function(editionId, vendorId)
         -- Retirer l'argent
         xPlayer.removeMoney(result.price)
 
-        -- Donner le journal avec metadata
+        -- Donner le journal avec metadata unique
         exports.ox_inventory:AddItem(source, 'newspaper', 1, {
             editionId = editionId,
             editionName = result.edition_name,
+            serial = editionId .. '-' .. os.time() .. '-buy',
             label = 'Journal - ' .. result.edition_name
         })
 
@@ -1058,6 +1063,7 @@ lib.addCommand('createedition', {
                 exports.ox_inventory:AddItem(source, 'newspaper', 1, {
                     editionId = editionId,
                     editionName = args.name or 'Edition Test',
+                    serial = editionId .. '-' .. os.time() .. '-admin',
                     label = 'Journal - ' .. (args.name or 'Edition Test')
                 })
                 TriggerClientEvent('ox_lib:notify', source, {

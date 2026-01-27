@@ -424,10 +424,13 @@ function renderCreatedAds() {
     container.innerHTML = editorAds.map(ad => {
         const used = isAdUsed(ad.id);
         const sel = selectedItem?.type === 'ad' && selectedItem.id === ad.id;
-        return `<div class="ad-block ${used ? 'used' : ''} ${sel ? 'selected' : ''}" onclick="${used ? '' : `selectAd(${ad.id})`}">
+        const imgHtml = ad.image ? `<img src="${ad.image}" class="ad-preview-img" onerror="this.style.display='none'">` : '';
+        return `<div class="ad-block ${used ? 'used' : ''} ${sel ? 'selected' : ''}" onclick="${used ? '' : `selectAd(${ad.id})`}" style="${ad.color ? 'border-color:'+ad.color : ''}">
             ${used ? '<span class="badge-used"><i class="fas fa-check"></i></span>' : ''}
+            ${imgHtml}
             <h5>${ad.business}</h5>
             <p>${ad.slogan}</p>
+            ${ad.contact ? `<small class="ad-contact">${ad.contact}</small>` : ''}
             <button class="btn-del" onclick="event.stopPropagation();deleteAd(${ad.id})"><i class="fas fa-trash"></i></button>
         </div>`;
     }).join('');
@@ -446,7 +449,13 @@ function renderZone(zoneName) {
         }
     } else if (zoneName === 'banner') {
         if (editorLayout.banner) {
-            html = `<div class="dropped-ad" onclick="removeFromZone('banner')"><span class="ad-label">PUB</span><strong>${editorLayout.banner.data.business}</strong><span class="remove"><i class="fas fa-times"></i></span></div>`;
+            const ad = editorLayout.banner.data;
+            const imgHtml = ad.image ? `<img src="${ad.image}" class="ad-zone-img" onerror="this.style.display='none'">` : '';
+            html = `<div class="dropped-ad" onclick="removeFromZone('banner')" style="${ad.color ? 'border-color:'+ad.color : ''}">
+                ${imgHtml}<span class="ad-label">PUB</span><strong>${ad.business}</strong>
+                ${ad.slogan ? `<span class="ad-slogan">${ad.slogan}</span>` : ''}
+                <span class="remove"><i class="fas fa-times"></i></span>
+            </div>`;
         } else {
             html = `<div class="drop-placeholder" onclick="placeInZone('banner')"><i class="fas fa-ad"></i><span>Banniere</span></div>`;
         }
@@ -455,7 +464,11 @@ function renderZone(zoneName) {
         if (items.length > 0) {
             html = items.map((item, i) => {
                 if (item.type === 'article') return `<div class="dropped-item small" onclick="removeFromCol('${zoneName}',${i})"><h4>${item.data.title}</h4><span class="remove"><i class="fas fa-times"></i></span></div>`;
-                if (item.type === 'ad') return `<div class="dropped-ad small" onclick="removeFromCol('${zoneName}',${i})"><strong>${item.data.business}</strong><span class="remove"><i class="fas fa-times"></i></span></div>`;
+                if (item.type === 'ad') {
+                    const ad = item.data;
+                    const imgHtml = ad.image ? `<img src="${ad.image}" class="ad-zone-img-small" onerror="this.style.display='none'">` : '';
+                    return `<div class="dropped-ad small" onclick="removeFromCol('${zoneName}',${i})" style="${ad.color ? 'border-color:'+ad.color : ''}">${imgHtml}<strong>${ad.business}</strong><span class="remove"><i class="fas fa-times"></i></span></div>`;
+                }
                 if (item.type === 'element') return `<div class="dropped-element" onclick="removeFromCol('${zoneName}',${i})"><i class="fas fa-shapes"></i> ${item.elementType}<span class="remove"><i class="fas fa-times"></i></span></div>`;
                 return '';
             }).join('');
@@ -637,12 +650,18 @@ let adIdCounter = 1;
 function createAdBlock() {
     const business = document.getElementById('ad-business').value.trim();
     const slogan = document.getElementById('ad-slogan').value.trim() || 'Votre partenaire';
+    const contact = document.getElementById('ad-contact').value.trim();
+    const image = document.getElementById('ad-image').value.trim();
+    const size = document.getElementById('ad-size').value;
+    const color = document.getElementById('ad-color').value;
     if (!business) { shakeEl(document.getElementById('ad-business')); return; }
-    editorAds.push({ id: adIdCounter++, business, slogan, size: document.getElementById('ad-size').value });
+    editorAds.push({ id: adIdCounter++, business, slogan, contact, image, size, color });
     renderCreatedAds();
     showNotif('Pub creee!', 'success');
     document.getElementById('ad-business').value = '';
     document.getElementById('ad-slogan').value = '';
+    document.getElementById('ad-contact').value = '';
+    document.getElementById('ad-image').value = '';
 }
 
 function deleteAd(id) {
@@ -743,10 +762,13 @@ function previewEdition() {
                         </div>
                     `;
                 } else if (item.type === 'ad') {
+                    const ad = item.data;
                     previewHtml += `
-                        <div class="preview-ad-small">
-                            <strong>${item.data.business}</strong>
-                            <span>${item.data.slogan || ''}</span>
+                        <div class="preview-ad-small" style="${ad.color ? 'border-color:'+ad.color : ''}">
+                            ${ad.image ? `<img src="${ad.image}" class="preview-ad-img" onerror="this.style.display='none'">` : ''}
+                            <strong>${ad.business}</strong>
+                            <span>${ad.slogan || ''}</span>
+                            ${ad.contact ? `<small>${ad.contact}</small>` : ''}
                         </div>
                     `;
                 } else if (item.type === 'element') {
@@ -760,10 +782,13 @@ function previewEdition() {
 
     // Banner
     if (editorLayout.banner) {
+        const ad = editorLayout.banner.data;
         previewHtml += `
-            <div class="preview-banner">
-                <strong>${editorLayout.banner.data.business}</strong>
-                <span>${editorLayout.banner.data.slogan || ''}</span>
+            <div class="preview-banner" style="${ad.color ? 'border-color:'+ad.color : ''}">
+                ${ad.image ? `<img src="${ad.image}" class="preview-banner-img" onerror="this.style.display='none'">` : ''}
+                <strong>${ad.business}</strong>
+                <span>${ad.slogan || ''}</span>
+                ${ad.contact ? `<small>${ad.contact}</small>` : ''}
             </div>
         `;
     }
