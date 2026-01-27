@@ -612,11 +612,19 @@ RegisterNetEvent('weazelnews:printAdvancedEdition', function(editionData)
         return
     end
 
+    -- Quantite a imprimer (defaut: 1, max: 50)
+    local quantity = editionData.quantity or 1
+    if quantity < 1 then quantity = 1 end
+    if quantity > 50 then quantity = 50 end
+
+    -- Calculer le cout total
+    local totalCost = Config.PrintCost * quantity
+
     -- Verifier l'argent
-    if xPlayer.getMoney() < Config.PrintCost then
+    if xPlayer.getMoney() < totalCost then
         TriggerClientEvent('ox_lib:notify', source, {
             title = Config.JobLabel,
-            description = Config.Messages.notEnoughMoney,
+            description = Config.Messages.notEnoughMoney .. ' ($' .. totalCost .. ' requis)',
             type = 'error'
         })
         TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
@@ -651,24 +659,24 @@ RegisterNetEvent('weazelnews:printAdvancedEdition', function(editionData)
         editionData.price or Config.DefaultNewspaperPrice
     }, function(editionId)
         if editionId then
-            -- Retirer l'argent
-            xPlayer.removeMoney(Config.PrintCost)
+            -- Retirer l'argent total
+            xPlayer.removeMoney(totalCost)
 
             -- Marquer les articles comme imprimes
             for _, articleId in ipairs(editionData.articleIds) do
                 MySQL.update('UPDATE weazelnews_articles SET status = ? WHERE id = ?', {'printed', articleId})
             end
 
-            -- Donner l'item journal avec metadata
-            exports.ox_inventory:AddItem(source, 'newspaper', 1, {
+            -- Donner les journaux avec metadata (quantite)
+            exports.ox_inventory:AddItem(source, 'newspaper', quantity, {
                 editionId = editionId,
                 editionName = editionData.name,
                 label = 'Journal - ' .. editionData.name
             })
 
-            TriggerClientEvent('weazelnews:advancedEditionPrinted', source, true, editionId)
-            print(('[Weazel News] Edition avancee imprimee par %s: %s (Template: %s, Pubs: %d)'):format(
-                printedBy, editionData.name, editionData.template or 'classic', editionData.ads and #editionData.ads or 0
+            TriggerClientEvent('weazelnews:advancedEditionPrinted', source, true, editionId, quantity)
+            print(('[Weazel News] %d exemplaires imprimes par %s: %s'):format(
+                quantity, printedBy, editionData.name
             ))
         else
             TriggerClientEvent('weazelnews:advancedEditionPrinted', source, false)
@@ -759,136 +767,19 @@ RegisterNetEvent('weazelnews:getArticlesForNewspaper', function()
 end)
 
 -- =====================================
--- SYSTEME DE STOCK
+-- SHOP - ACHAT AUX BOITES AUX LETTRES
 -- =====================================
 
-RegisterNetEvent('weazelnews:getStockData', function(vendorId, vendorLabel)
-    local source = source
-    local xPlayer = ESX.GetPlayerFromId(source)
-
-    if not xPlayer then return end
-
-    -- Verifier que le joueur est reporter
-    if xPlayer.job.name ~= Config.JobName then return end
-
-    -- Recuperer le stock actuel du vendeur
-    MySQL.query([[
-        SELECT vs.quantity, e.id as edition_id, e.edition_name, e.price
-        FROM weazelnews_vendor_stock vs
-        JOIN weazelnews_editions e ON vs.edition_id = e.id
-        WHERE vs.vendor_id = ? AND vs.quantity > 0
-    ]], {vendorId}, function(stockResults)
-        local stock = {}
-        if stockResults then
-            for _, row in ipairs(stockResults) do
-                table.insert(stock, {
-                    editionId = row.edition_id,
-                    name = row.edition_name,
-                    price = row.price,
-                    quantity = row.quantity
-                })
-            end
-        end
-
-        -- Recuperer les editions disponibles pour ajouter au stock
-        MySQL.query('SELECT id, edition_name, article_ids FROM weazelnews_editions ORDER BY created_at DESC LIMIT 20', {}, function(editionResults)
-            local editions = {}
-            if editionResults then
-                for _, row in ipairs(editionResults) do
-                    local articleIds = json.decode(row.article_ids) or {}
-                    table.insert(editions, {
-                        id = row.id,
-                        name = row.edition_name,
-                        articles = #articleIds
-                    })
-                end
-            end
-
-            TriggerClientEvent('weazelnews:openStock', source, {
-                vendorId = vendorId,
-                vendorLabel = vendorLabel,
-                stock = stock,
-                editions = editions
-            })
-        end)
-    end)
-end)
-
-RegisterNetEvent('weazelnews:addStock', function(vendorId, editionId, quantity)
-    local source = source
-    local xPlayer = ESX.GetPlayerFromId(source)
-
-    if not xPlayer then return end
-
-    -- Verifier que le joueur est reporter
-    if xPlayer.job.name ~= Config.JobName then
-        TriggerClientEvent('weazelnews:stockAdded', source, false)
-        return
-    end
-
-    -- Verifier que le joueur a l'item newspaper avec cette edition
-    local items = exports.ox_inventory:GetSlots(source)
-    local hasNewspaper = false
-    local slotToRemove = nil
-
-    for slot, item in pairs(items) do
-        if item and item.name == 'newspaper' then
-            local metadata = item.metadata or {}
-            if metadata.editionId == editionId then
-                hasNewspaper = true
-                slotToRemove = slot
-                break
-            end
-        end
-    end
-
-    if not hasNewspaper then
-        TriggerClientEvent('ox_lib:notify', source, {
-            title = Config.JobLabel,
-            description = 'Vous n\'avez pas ce journal en inventaire',
-            type = 'error'
-        })
-        TriggerClientEvent('weazelnews:stockAdded', source, false)
-        return
-    end
-
-    -- Retirer l'item de l'inventaire
-    exports.ox_inventory:RemoveItem(source, 'newspaper', 1, nil, slotToRemove)
-
-    -- Ajouter au stock (UPSERT)
-    MySQL.query([[
-        INSERT INTO weazelnews_vendor_stock (vendor_id, edition_id, quantity, added_by)
-        VALUES (?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
-    ]], {
-        vendorId,
-        editionId,
-        quantity,
-        xPlayer.identifier
-    }, function(result)
-        if result then
-            TriggerClientEvent('weazelnews:stockAdded', source, true)
-            print(('[Weazel News] Stock ajoute par %s: %d exemplaires au point %d'):format(xPlayer.getName(), quantity, vendorId))
-        else
-            TriggerClientEvent('weazelnews:stockAdded', source, false)
-        end
-    end)
-end)
-
--- =====================================
--- SHOP - ACHAT POUR CITOYENS
--- =====================================
-
-RegisterNetEvent('weazelnews:getVendorStock', function(vendorId, vendorLabel)
+RegisterNetEvent('weazelnews:getAllEditions', function(vendorId)
     local source = source
 
-    -- Recuperer le stock du vendeur avec les editions disponibles
+    -- Recuperer toutes les editions disponibles (les 10 dernieres)
     MySQL.query([[
-        SELECT vs.quantity, vs.edition_id, e.edition_name, e.price, e.article_ids
-        FROM weazelnews_vendor_stock vs
-        JOIN weazelnews_editions e ON vs.edition_id = e.id
-        WHERE vs.vendor_id = ? AND vs.quantity > 0
-    ]], {vendorId}, function(results)
+        SELECT id, edition_name, price, article_ids, created_at
+        FROM weazelnews_editions
+        ORDER BY created_at DESC
+        LIMIT 10
+    ]], {}, function(results)
         if not results or #results == 0 then
             TriggerClientEvent('weazelnews:noStock', source)
             return
@@ -898,17 +789,16 @@ RegisterNetEvent('weazelnews:getVendorStock', function(vendorId, vendorLabel)
         for _, row in ipairs(results) do
             local articleIds = json.decode(row.article_ids) or {}
             table.insert(editions, {
-                id = row.edition_id,
+                id = row.id,
                 name = row.edition_name,
                 price = row.price,
-                articles = #articleIds,
-                date = 'Disponible'
+                articles = #articleIds
             })
         end
 
         TriggerClientEvent('weazelnews:openShop', source, {
             vendorId = vendorId,
-            vendorLabel = vendorLabel,
+            vendorLabel = 'Boite aux lettres',
             editions = editions
         })
     end)
@@ -920,13 +810,8 @@ RegisterNetEvent('weazelnews:buyEdition', function(editionId, vendorId)
 
     if not xPlayer then return end
 
-    -- Recuperer l'edition et verifier le stock
-    MySQL.single([[
-        SELECT vs.quantity, e.edition_name, e.price
-        FROM weazelnews_vendor_stock vs
-        JOIN weazelnews_editions e ON vs.edition_id = e.id
-        WHERE vs.vendor_id = ? AND vs.edition_id = ? AND vs.quantity > 0
-    ]], {vendorId, editionId}, function(result)
+    -- Recuperer l'edition
+    MySQL.single('SELECT edition_name, price FROM weazelnews_editions WHERE id = ?', {editionId}, function(result)
         if not result then
             TriggerClientEvent('weazelnews:noStock', source)
             return
@@ -945,12 +830,6 @@ RegisterNetEvent('weazelnews:buyEdition', function(editionId, vendorId)
 
         -- Retirer l'argent
         xPlayer.removeMoney(result.price)
-
-        -- Reduire le stock
-        MySQL.update('UPDATE weazelnews_vendor_stock SET quantity = quantity - 1 WHERE vendor_id = ? AND edition_id = ?', {
-            vendorId,
-            editionId
-        })
 
         -- Donner le journal avec metadata
         exports.ox_inventory:AddItem(source, 'newspaper', 1, {

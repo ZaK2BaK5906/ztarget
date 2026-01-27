@@ -143,22 +143,18 @@ Config.Keys = {
 
 -- Configuration des blips
 Config.Blips = {
-    scale = 0.5,
-    vendorSprite = 184,
-    vendorColor = 47, -- Orange
     hqSprite = 184,
-    hqColor = 47,
-    hqScale = 0.7
+    hqColor = 47, -- Orange
+    hqScale = 0.8,
+    hqLabel = 'Weazel News'
 }
 
--- Points de vente de journaux (boites aux lettres) - VISIBLE UNIQUEMENT POUR LE JOB
--- Chaque vendor a un ID unique pour gerer son stock
-Config.NewspaperVendors = {
-    {id = 1, coords = vector3(-1037.0, -2733.0, 20.0), label = 'Boite aux lettres - Aeroport'},
-    {id = 2, coords = vector3(428.0, -806.0, 29.0), label = 'Boite aux lettres - Legion Square'},
-    {id = 3, coords = vector3(-538.0, -188.0, 38.0), label = 'Boite aux lettres - Vinewood'},
-    {id = 4, coords = vector3(145.0, -1035.0, 29.0), label = 'Boite aux lettres - Pillbox'},
-    {id = 5, coords = vector3(-1220.0, -330.0, 37.0), label = 'Boite aux lettres - Rockford'},
+-- Props de boites aux lettres targetables pour acheter le journal
+Config.MailboxProps = {
+    'prop_letterbox_01',
+    'prop_letterbox_02',
+    'prop_letterbox_03',
+    'prop_letterbox_04'
 }
 
 -- QG Weazel News - VISIBLE POUR TOUT LE MONDE

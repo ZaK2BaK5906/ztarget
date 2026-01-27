@@ -627,12 +627,22 @@ function updateSummary() {
     ['col1','col2','col3'].forEach(c => editorLayout[c].forEach(i => i.type === 'article' ? ac++ : adc++));
     document.getElementById('summary-articles').textContent = ac;
     document.getElementById('summary-ads').textContent = adc;
-    document.getElementById('summary-cost').textContent = '$' + printCostBase;
+    const qty = parseInt(document.getElementById('ee-quantity')?.value) || 1;
+    document.getElementById('summary-cost').textContent = '$' + (printCostBase * qty);
+}
+
+function changeQuantity(delta) {
+    const input = document.getElementById('ee-quantity');
+    let val = parseInt(input.value) || 1;
+    val = Math.max(1, Math.min(50, val + delta));
+    input.value = val;
+    updateSummary();
 }
 
 function printFromEditor() {
     const name = document.getElementById('ee-edition-name').value.trim();
     const price = parseInt(document.getElementById('ee-price').value) || 50;
+    const quantity = parseInt(document.getElementById('ee-quantity').value) || 1;
     if (!name) { shakeEl(document.getElementById('ee-edition-name')); return; }
 
     const articleIds = [];
@@ -647,12 +657,91 @@ function printFromEditor() {
 
     fetch(`https://${getResourceName()}/printAdvancedEdition`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, price, articleIds, ads, layout: editorLayout, template: document.getElementById('layout-template').value })
+        body: JSON.stringify({ name, price, quantity, articleIds, ads, layout: editorLayout, template: document.getElementById('layout-template').value })
     }).catch(() => {});
 }
 
 function previewEdition() {
-    showNotif('Apercu dans une future version', 'info');
+    const name = document.getElementById('ee-edition-name').value.trim() || 'Edition Sans Nom';
+    const price = parseInt(document.getElementById('ee-price').value) || 50;
+
+    // Generate preview HTML
+    let previewHtml = `
+        <div class="preview-newspaper">
+            <div class="preview-header">
+                <div class="title">THE WEAZEL GAZETTE</div>
+                <div class="subtitle">"La verite, rien que la verite"</div>
+                <div style="margin-top:10px;font-size:11px;color:#6b6b6b;">
+                    ${name} - Prix: $${price}
+                </div>
+            </div>
+    `;
+
+    // La Une
+    if (editorLayout.une) {
+        previewHtml += `
+            <div class="preview-une">
+                <h2>${editorLayout.une.data.title}</h2>
+                <p>${editorLayout.une.data.subtitle || editorLayout.une.data.category}</p>
+            </div>
+        `;
+    }
+
+    // Columns
+    previewHtml += '<div class="preview-columns">';
+    ['col1', 'col2', 'col3'].forEach((col, idx) => {
+        previewHtml += `<div class="preview-column">`;
+        if (editorLayout[col].length === 0) {
+            previewHtml += `<p style="color:#999;font-size:11px;text-align:center;">Colonne ${idx + 1} vide</p>`;
+        } else {
+            editorLayout[col].forEach(item => {
+                if (item.type === 'article') {
+                    previewHtml += `
+                        <div class="preview-article-small">
+                            <h4>${item.data.title}</h4>
+                            <p>${item.data.category}</p>
+                        </div>
+                    `;
+                } else if (item.type === 'ad') {
+                    previewHtml += `
+                        <div class="preview-ad-small">
+                            <strong>${item.data.business}</strong>
+                            <span>${item.data.slogan || ''}</span>
+                        </div>
+                    `;
+                } else if (item.type === 'element') {
+                    previewHtml += `<div style="padding:10px;background:#f0f0f0;text-align:center;margin-bottom:10px;font-size:10px;color:#666;">${item.elementType}</div>`;
+                }
+            });
+        }
+        previewHtml += '</div>';
+    });
+    previewHtml += '</div>';
+
+    // Banner
+    if (editorLayout.banner) {
+        previewHtml += `
+            <div class="preview-banner">
+                <strong>${editorLayout.banner.data.business}</strong>
+                <span>${editorLayout.banner.data.slogan || ''}</span>
+            </div>
+        `;
+    }
+
+    previewHtml += `
+            <div class="preview-footer">
+                Weazel News &copy; - Tous droits reserves
+            </div>
+        </div>
+    `;
+
+    // Show modal
+    document.getElementById('preview-content').innerHTML = previewHtml;
+    document.getElementById('preview-modal').classList.remove('hidden');
+}
+
+function closePreview() {
+    document.getElementById('preview-modal').classList.add('hidden');
 }
 
 function resetEdition() {

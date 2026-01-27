@@ -26,8 +26,8 @@ local isPrintOpen = false
 local cachedArticles = {}
 local currentArticleIndex = 1
 
--- Blips pour les vendeurs (a supprimer quand on quitte le job)
-local vendorBlips = {}
+-- Blip QG
+local hqBlip = nil
 
 -- Configuration overlay personnalisee (peut etre changee par le patron)
 local overlayConfig = {
@@ -92,36 +92,6 @@ local function CanPrint()
 end
 
 -- =====================================
--- GESTION DES BLIPS VENDEURS (JOB ONLY)
--- =====================================
-
-local function CreateVendorBlips()
-    -- Supprimer les anciens blips
-    for _, blip in ipairs(vendorBlips) do
-        if DoesBlipExist(blip) then
-            RemoveBlip(blip)
-        end
-    end
-    vendorBlips = {}
-
-    -- Creer les blips seulement si reporter
-    if isReporter then
-        for i, vendor in ipairs(Config.NewspaperVendors) do
-            local blip = AddBlipForCoord(vendor.coords.x, vendor.coords.y, vendor.coords.z)
-            SetBlipSprite(blip, Config.Blips.vendorSprite)
-            SetBlipDisplay(blip, 4)
-            SetBlipScale(blip, Config.Blips.scale)
-            SetBlipColour(blip, Config.Blips.vendorColor)
-            SetBlipAsShortRange(blip, true)
-            BeginTextCommandSetBlipName('STRING')
-            AddTextEntry('weazelnews_vendor_' .. i, vendor.label)
-            EndTextCommandSetBlipName(blip)
-            table.insert(vendorBlips, blip)
-        end
-    end
-end
-
--- =====================================
 -- GESTION DU JOB
 -- =====================================
 
@@ -129,14 +99,12 @@ RegisterNetEvent('esx:setJob', function(job)
     PlayerData.job = job
     isReporter = job.name == Config.JobName
     UpdateRadialMenu()
-    CreateVendorBlips()
 end)
 
 RegisterNetEvent('esx:playerLoaded', function(xPlayer)
     PlayerData = xPlayer
     isReporter = PlayerData.job and PlayerData.job.name == Config.JobName
     UpdateRadialMenu()
-    CreateVendorBlips()
 end)
 
 AddEventHandler('onResourceStart', function(resourceName)
@@ -148,7 +116,6 @@ AddEventHandler('onResourceStart', function(resourceName)
     end
     Wait(1000)
     UpdateRadialMenu()
-    CreateVendorBlips()
 end)
 
 -- =====================================
@@ -1017,6 +984,7 @@ RegisterNUICallback('printAdvancedEdition', function(data, cb)
     TriggerServerEvent('weazelnews:printAdvancedEdition', {
         name = data.name,
         price = data.price,
+        quantity = data.quantity,
         articleIds = data.articleIds,
         ads = data.ads,
         layout = data.layout,
@@ -1025,9 +993,13 @@ RegisterNUICallback('printAdvancedEdition', function(data, cb)
     cb('ok')
 end)
 
-RegisterNetEvent('weazelnews:advancedEditionPrinted', function(success, editionId)
+RegisterNetEvent('weazelnews:advancedEditionPrinted', function(success, editionId, quantity)
     if success then
-        Notify(Config.Messages.editionPrinted, 'success')
+        local msg = Config.Messages.editionPrinted
+        if quantity and quantity > 1 then
+            msg = quantity .. ' exemplaires imprimes!'
+        end
+        Notify(msg, 'success')
         isEditionEditorOpen = false
         SetNuiFocus(false, false)
         SendNUIMessage({
@@ -1231,39 +1203,26 @@ RegisterNetEvent('weazelnews:openNewspaperWithArticles', function(data)
 end)
 
 -- =====================================
--- POINTS DE VENTE DE JOURNAUX (SHOP)
+-- BOITES AUX LETTRES - ACHAT DE JOURNAUX
 -- =====================================
 
 CreateThread(function()
     Wait(1000)
 
-    for _, vendor in ipairs(Config.NewspaperVendors) do
-        exports.ox_target:addSphereZone({
-            coords = vendor.coords,
-            radius = 1.5,
-            options = {
-                {
-                    name = 'buy_newspaper_' .. vendor.id,
-                    label = 'Acheter un journal',
-                    icon = 'fa-solid fa-newspaper',
-                    onSelect = function()
-                        OpenShopInterface(vendor.id, vendor.label)
-                    end
-                },
-                {
-                    name = 'manage_stock_' .. vendor.id,
-                    label = 'Gerer le stock',
-                    icon = 'fa-solid fa-boxes-stacked',
-                    canInteract = function()
-                        return HasReporterJob()
-                    end,
-                    onSelect = function()
-                        OpenStockInterface(vendor.id, vendor.label)
-                    end
-                }
-            }
-        })
-    end
+    -- Target sur les props de boites aux lettres
+    exports.ox_target:addModel(Config.MailboxProps, {
+        {
+            name = 'buy_newspaper_mailbox',
+            label = 'Acheter un journal',
+            icon = 'fa-solid fa-newspaper',
+            onSelect = function(data)
+                -- Utiliser les coords de l'entite comme ID unique
+                local coords = GetEntityCoords(data.entity)
+                local vendorId = math.floor(coords.x * 100 + coords.y * 10 + coords.z)
+                OpenShopInterface(vendorId, 'Boite aux lettres')
+            end
+        }
+    })
 end)
 
 -- =====================================
@@ -1271,7 +1230,8 @@ end)
 -- =====================================
 
 function OpenShopInterface(vendorId, vendorLabel)
-    TriggerServerEvent('weazelnews:getVendorStock', vendorId, vendorLabel)
+    -- Demander toutes les editions disponibles (pas de stock par vendeur)
+    TriggerServerEvent('weazelnews:getAllEditions', vendorId)
 end
 
 RegisterNetEvent('weazelnews:openShop', function(data)
@@ -1314,69 +1274,21 @@ RegisterNetEvent('weazelnews:noStock', function()
 end)
 
 -- =====================================
--- STOCK INTERFACE (GESTION POUR REPORTERS)
--- =====================================
-
-function OpenStockInterface(vendorId, vendorLabel)
-    if not HasReporterJob() then
-        Notify(Config.Messages.noJob, 'error')
-        return
-    end
-
-    TriggerServerEvent('weazelnews:getStockData', vendorId, vendorLabel)
-end
-
-RegisterNetEvent('weazelnews:openStock', function(data)
-    if isStockOpen then return end
-
-    isStockOpen = true
-    SetNuiFocus(true, true)
-    SendNUIMessage({
-        action = 'openStock',
-        data = data
-    })
-end)
-
-RegisterNUICallback('addStock', function(data, cb)
-    TriggerServerEvent('weazelnews:addStock', data.vendorId, data.editionId, data.quantity)
-    cb('ok')
-end)
-
-RegisterNUICallback('closeStock', function(data, cb)
-    isStockOpen = false
-    SetNuiFocus(false, false)
-    cb('ok')
-end)
-
-RegisterNetEvent('weazelnews:stockAdded', function(success)
-    if success then
-        Notify(Config.Messages.stockAdded, 'success')
-        isStockOpen = false
-        SetNuiFocus(false, false)
-        SendNUIMessage({
-            action = 'closeStock'
-        })
-    else
-        Notify(Config.Messages.stockError, 'error')
-    end
-end)
-
--- =====================================
 -- BLIP QG WEAZEL NEWS (VISIBLE POUR TOUS)
 -- =====================================
 
 CreateThread(function()
     Wait(1000)
 
-    local blip = AddBlipForCoord(Config.WeazelHQ.coords.x, Config.WeazelHQ.coords.y, Config.WeazelHQ.coords.z)
-    SetBlipSprite(blip, Config.Blips.hqSprite)
-    SetBlipDisplay(blip, 4)
-    SetBlipScale(blip, Config.Blips.hqScale)
-    SetBlipColour(blip, Config.Blips.hqColor)
-    SetBlipAsShortRange(blip, true)
-    BeginTextCommandSetBlipName('STRING')
-    AddTextEntry('weazelnews_hq', 'QG Weazel News')
-    EndTextCommandSetBlipName(blip)
+    hqBlip = AddBlipForCoord(Config.WeazelHQ.coords.x, Config.WeazelHQ.coords.y, Config.WeazelHQ.coords.z)
+    SetBlipSprite(hqBlip, Config.Blips.hqSprite)
+    SetBlipDisplay(hqBlip, 4)
+    SetBlipScale(hqBlip, Config.Blips.hqScale)
+    SetBlipColour(hqBlip, Config.Blips.hqColor)
+    SetBlipAsShortRange(hqBlip, false) -- Visible de loin
+    AddTextEntry('weazelnews_hq', Config.Blips.hqLabel)
+    BeginTextCommandSetBlipName('weazelnews_hq')
+    EndTextCommandSetBlipName(hqBlip)
 end)
 
 -- =====================================
@@ -1418,11 +1330,9 @@ AddEventHandler('onResourceStop', function(resourceName)
     if activeNewspaper then DeleteEntity(activeNewspaper) end
     if activeNotepad then DeleteEntity(activeNotepad) end
 
-    -- Supprimer les blips vendeurs
-    for _, blip in ipairs(vendorBlips) do
-        if DoesBlipExist(blip) then
-            RemoveBlip(blip)
-        end
+    -- Supprimer le blip QG
+    if hqBlip and DoesBlipExist(hqBlip) then
+        RemoveBlip(hqBlip)
     end
 
     -- Fermer les NUI

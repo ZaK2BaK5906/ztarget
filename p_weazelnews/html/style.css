@@ -3477,3 +3477,207 @@ body {
     25% { transform: translateX(-5px); }
     75% { transform: translateX(5px); }
 }
+
+/* ========================================
+   SELECTEUR DE QUANTITE
+   ======================================== */
+.quantity-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: #333;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.quantity-row label {
+    font-size: 12px;
+    color: #ccc;
+}
+
+.quantity-input {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #444;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.quantity-input button {
+    width: 32px;
+    height: 32px;
+    background: #555;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quantity-input button:hover {
+    background: var(--sepia);
+    color: white;
+}
+
+.quantity-input input {
+    width: 50px;
+    height: 32px;
+    background: #444;
+    border: none;
+    color: white;
+    text-align: center;
+    font-size: 14px;
+    font-family: 'Libre Baskerville', serif;
+}
+
+.quantity-input input:focus {
+    outline: none;
+    background: #4a4a4a;
+}
+
+.quantity-input input::-webkit-inner-spin-button,
+.quantity-input input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* ========================================
+   APERCU DU JOURNAL
+   ======================================== */
+.preview-newspaper {
+    background: var(--paper-bg);
+    border: 1px solid var(--paper-border);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    padding: 20px;
+    max-width: 100%;
+}
+
+.preview-header {
+    text-align: center;
+    border-bottom: 2px solid var(--ink-black);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.preview-header .title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--ink-black);
+    letter-spacing: 3px;
+}
+
+.preview-header .subtitle {
+    font-family: 'IM Fell English', serif;
+    font-size: 12px;
+    color: var(--ink-medium);
+    font-style: italic;
+}
+
+.preview-une {
+    border-bottom: 1px solid var(--paper-border);
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+}
+
+.preview-une h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    color: var(--ink-black);
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.preview-une p {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 13px;
+    color: var(--ink-medium);
+    text-align: center;
+}
+
+.preview-columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.preview-column {
+    padding: 0 10px;
+    border-left: 1px solid var(--paper-border);
+}
+
+.preview-column:first-child {
+    border-left: none;
+}
+
+.preview-article-small {
+    margin-bottom: 15px;
+}
+
+.preview-article-small h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-dark);
+    margin-bottom: 5px;
+}
+
+.preview-article-small p {
+    font-size: 11px;
+    color: var(--ink-light);
+}
+
+.preview-ad-small {
+    background: #f8f4e8;
+    border: 1px dashed var(--sepia);
+    padding: 8px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.preview-ad-small strong {
+    font-size: 11px;
+    color: var(--ink-dark);
+    display: block;
+}
+
+.preview-ad-small span {
+    font-size: 9px;
+    color: var(--ink-medium);
+    font-style: italic;
+}
+
+.preview-banner {
+    background: linear-gradient(135deg, #f8f4e8, #f0e8d8);
+    border: 2px solid var(--sepia);
+    padding: 15px;
+    text-align: center;
+    margin-top: 15px;
+}
+
+.preview-banner strong {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--ink-dark);
+    display: block;
+    margin-bottom: 5px;
+}
+
+.preview-banner span {
+    font-size: 12px;
+    color: var(--ink-medium);
+    font-style: italic;
+}
+
+.preview-footer {
+    text-align: center;
+    padding-top: 15px;
+    border-top: 2px solid var(--ink-black);
+    font-size: 10px;
+    color: var(--ink-light);
+}
