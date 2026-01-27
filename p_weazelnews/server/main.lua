@@ -49,6 +49,59 @@ local function SendWebhook(title, content, author, category)
     }), {['Content-Type'] = 'application/json'})
 end
 
+-- Webhook pour envoyer une edition complete avec tous ses articles
+local function SendEditionWebhook(editionName, articles, printedBy, price)
+    if not Config.WebhookEnabled or Config.WebhookURL == '' then return end
+
+    local currentTime = os.date('%d/%m/%Y %H:%M')
+
+    -- Creer les embeds pour chaque article (max 10 embeds par message Discord)
+    local embeds = {}
+
+    -- Premier embed: Header de l'edition
+    table.insert(embeds, {
+        ['title'] = '📰 ' .. editionName,
+        ['description'] = '**Nouvelle edition disponible !**\n\nPrix: $' .. price .. '\nImprime par: ' .. printedBy .. '\nDate: ' .. currentTime,
+        ['color'] = Config.WebhookColor,
+        ['thumbnail'] = {
+            ['url'] = Config.WebhookThumbnail
+        }
+    })
+
+    -- Ajouter chaque article comme embed (max 9 articles pour rester sous la limite de 10)
+    for i, article in ipairs(articles) do
+        if i > 9 then break end
+
+        local articleContent = article.content or ''
+        -- Limiter a 1000 caracteres par article
+        if string.len(articleContent) > 1000 then
+            articleContent = string.sub(articleContent, 1, 1000) .. '...'
+        end
+
+        table.insert(embeds, {
+            ['title'] = (article.category and ('**[' .. article.category .. ']** ') or '') .. article.title,
+            ['description'] = (article.subtitle and ('*' .. article.subtitle .. '*\n\n') or '') .. articleContent,
+            ['color'] = 0xf5f0e1,
+            ['footer'] = {
+                ['text'] = 'Par ' .. (article.author or 'Anonyme')
+            }
+        })
+    end
+
+    -- Footer final
+    table.insert(embeds, {
+        ['description'] = '━━━━━━━━━━━━━━━━━━━━━━\n📍 **Disponible dans toutes les boites aux lettres de Los Santos**\n*The Weazel Gazette - La verite, rien que la verite*',
+        ['color'] = Config.WebhookColor
+    })
+
+    PerformHttpRequest(Config.WebhookURL, function(err, text, headers) end, 'POST', json.encode({
+        username = 'The Weazel Gazette',
+        avatar_url = Config.WebhookThumbnail,
+        content = '||@here|| **📰 NOUVELLE EDITION : ' .. editionName .. ' 📰**',
+        embeds = embeds
+    }), {['Content-Type'] = 'application/json'})
+end
+
 local function FormatDate(timestamp)
     if not timestamp then return os.date('%d/%m/%Y %H:%M') end
     return os.date('%d/%m/%Y %H:%M', timestamp)
@@ -674,6 +727,28 @@ RegisterNetEvent('weazelnews:printAdvancedEdition', function(editionData)
                 label = 'Journal - ' .. editionData.name
             })
 
+            -- Envoyer le webhook avec tous les articles
+            local placeholders = {}
+            for i = 1, #editionData.articleIds do
+                table.insert(placeholders, '?')
+            end
+            local query = 'SELECT * FROM weazelnews_articles WHERE id IN (' .. table.concat(placeholders, ',') .. ')'
+            MySQL.query(query, editionData.articleIds, function(results)
+                if results and #results > 0 then
+                    local articles = {}
+                    for _, row in ipairs(results) do
+                        table.insert(articles, {
+                            title = row.title,
+                            subtitle = row.subtitle,
+                            content = row.content,
+                            author = row.author,
+                            category = row.category
+                        })
+                    end
+                    SendEditionWebhook(editionData.name, articles, printedBy, editionData.price or Config.DefaultNewspaperPrice)
+                end
+            end)
+
             TriggerClientEvent('weazelnews:advancedEditionPrinted', source, true, editionId, quantity)
             print(('[Weazel News] %d exemplaires imprimes par %s: %s'):format(
                 quantity, printedBy, editionData.name
@@ -840,6 +915,61 @@ RegisterNetEvent('weazelnews:buyEdition', function(editionId, vendorId)
 
         TriggerClientEvent('weazelnews:editionBought', source, true)
         print(('[Weazel News] Journal achete par %s: %s'):format(xPlayer.getName(), result.edition_name))
+    end)
+end)
+
+-- =====================================
+-- SUPPRESSION D'EDITIONS
+-- =====================================
+
+RegisterNetEvent('weazelnews:getMyEditions', function()
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+
+    if not xPlayer then return end
+
+    -- Verifier que le joueur est reporter
+    if xPlayer.job.name ~= Config.JobName then return end
+
+    MySQL.query('SELECT id, edition_name, price, created_at FROM weazelnews_editions WHERE identifier = ? ORDER BY created_at DESC LIMIT 20', {
+        xPlayer.identifier
+    }, function(results)
+        local editions = {}
+        if results then
+            for _, row in ipairs(results) do
+                table.insert(editions, {
+                    id = row.id,
+                    name = row.edition_name,
+                    price = row.price,
+                    date = FormatDate(row.created_at)
+                })
+            end
+        end
+        TriggerClientEvent('weazelnews:receiveMyEditions', source, editions)
+    end)
+end)
+
+RegisterNetEvent('weazelnews:deleteEdition', function(editionId)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+
+    if not xPlayer then return end
+
+    -- Verifier que le joueur est reporter
+    if xPlayer.job.name ~= Config.JobName then
+        TriggerClientEvent('weazelnews:editionDeleted', source, false)
+        return
+    end
+
+    -- Supprimer seulement si l'edition appartient au joueur
+    MySQL.update('DELETE FROM weazelnews_editions WHERE id = ? AND identifier = ?', {
+        editionId,
+        xPlayer.identifier
+    }, function(affectedRows)
+        TriggerClientEvent('weazelnews:editionDeleted', source, affectedRows > 0)
+        if affectedRows > 0 then
+            print(('[Weazel News] Edition #%d supprimee par %s'):format(editionId, xPlayer.getName()))
+        end
     end)
 end)
 

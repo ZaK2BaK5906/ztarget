@@ -540,6 +540,16 @@ function addArticleToEditor(article) {
     renderArticlesPool();
 }
 
+function insertEditorImage() {
+    const url = document.getElementById('editor-image-url-input').value.trim();
+    // Ouvrir le modal pour l'URL
+    document.getElementById('editor-image-url-input').value = '';
+    document.getElementById('editor-image-modal').classList.remove('hidden');
+    // Changer le comportement du confirm pour inserer dans le texte
+    document.getElementById('editor-image-modal').dataset.insertMode = 'inline';
+    setTimeout(() => document.getElementById('editor-image-url-input').focus(), 100);
+}
+
 function insertEditorSeparator() {
     const c = document.getElementById('ee-article-content');
     const p = c.selectionStart;
@@ -569,12 +579,42 @@ function updateCharCount() {
     if (c && counter) counter.textContent = c.value.length;
 }
 
-function addEditorImage() {
-    const url = prompt('URL de l\'image:');
-    if (url && url.trim()) {
-        editorArticleImages.push(url.trim());
-        renderEditorImages();
+function addEditorImageUrl() {
+    document.getElementById('editor-image-url-input').value = '';
+    document.getElementById('editor-image-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('editor-image-url-input').focus(), 100);
+}
+
+function closeEditorImageModal() {
+    document.getElementById('editor-image-modal').classList.add('hidden');
+}
+
+function confirmEditorImageUrl() {
+    const url = document.getElementById('editor-image-url-input').value.trim();
+    const modal = document.getElementById('editor-image-modal');
+    const isInline = modal.dataset.insertMode === 'inline';
+
+    if (url) {
+        if (isInline) {
+            // Inserer dans le contenu de l'article
+            const c = document.getElementById('ee-article-content');
+            const p = c.selectionStart;
+            c.value = c.value.slice(0, p) + `[IMG:${url}]` + c.value.slice(p);
+            updateCharCount();
+            showNotif('Image inseree dans le texte!', 'success');
+        } else {
+            // Ajouter a la liste des images
+            editorArticleImages.push(url);
+            renderEditorImages();
+            showNotif('Image ajoutee!', 'success');
+        }
     }
+    modal.dataset.insertMode = '';
+    closeEditorImageModal();
+}
+
+function addEditorImage() {
+    addEditorImageUrl();
 }
 
 function removeEditorImage(i) {

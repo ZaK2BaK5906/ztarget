@@ -169,13 +169,6 @@ local function GetRadialItems()
             end
         },
         {
-            label = 'Ecrire un Article',
-            icon = 'pen-to-square',
-            onSelect = function()
-                OpenArticleWriter()
-            end
-        },
-        {
             label = 'Mes Articles',
             icon = 'file-lines',
             onSelect = function()
@@ -187,6 +180,13 @@ local function GetRadialItems()
             icon = 'newspaper',
             onSelect = function()
                 OpenEditionEditor()
+            end
+        },
+        {
+            label = 'Mes Editions',
+            icon = 'layer-group',
+            onSelect = function()
+                OpenMyEditionsList()
             end
         }
     }
@@ -859,6 +859,89 @@ RegisterNetEvent('weazelnews:articleDeleted', function(success)
 end)
 
 -- =====================================
+-- GESTION DES EDITIONS (SUPPRESSION)
+-- =====================================
+
+function OpenMyEditionsList()
+    if not HasReporterJob() then
+        Notify(Config.Messages.noJob, 'error')
+        return
+    end
+
+    TriggerServerEvent('weazelnews:getMyEditions')
+end
+
+RegisterNetEvent('weazelnews:receiveMyEditions', function(editions)
+    if not editions or #editions == 0 then
+        Notify('Aucune edition trouvee', 'info')
+        return
+    end
+
+    local options = {}
+    for i, edition in ipairs(editions) do
+        table.insert(options, {
+            title = edition.name,
+            description = 'Prix: $' .. edition.price .. ' - ' .. edition.date,
+            icon = 'newspaper',
+            onSelect = function()
+                OpenEditionOptions(edition)
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'weazelnews_my_editions',
+        title = 'Mes Editions',
+        options = options
+    })
+
+    lib.showContext('weazelnews_my_editions')
+end)
+
+function OpenEditionOptions(edition)
+    local options = {
+        {
+            title = 'Supprimer l\'edition',
+            description = 'Attention: action irreversible',
+            icon = 'trash',
+            onSelect = function()
+                lib.alertDialog({
+                    header = 'Confirmer la suppression',
+                    content = 'Voulez-vous vraiment supprimer l\'edition **' .. edition.name .. '** ?',
+                    centered = true,
+                    cancel = true,
+                    labels = {
+                        confirm = 'Supprimer',
+                        cancel = 'Annuler'
+                    }
+                }, function(result)
+                    if result == 'confirm' then
+                        TriggerServerEvent('weazelnews:deleteEdition', edition.id)
+                    end
+                end)
+            end
+        }
+    }
+
+    lib.registerContext({
+        id = 'weazelnews_edition_options',
+        title = edition.name,
+        menu = 'weazelnews_my_editions',
+        options = options
+    })
+
+    lib.showContext('weazelnews_edition_options')
+end
+
+RegisterNetEvent('weazelnews:editionDeleted', function(success)
+    if success then
+        Notify('Edition supprimee', 'success')
+    else
+        Notify('Erreur lors de la suppression', 'error')
+    end
+end)
+
+-- =====================================
 -- SYSTEME D'IMPRESSION D'EDITIONS
 -- =====================================
 
@@ -870,16 +953,6 @@ function OpenPrintInterface()
 
     if not CanPrint() then
         Notify('Grade insuffisant pour imprimer', 'error')
-        return
-    end
-
-    -- Verifier si dans zone d'impression
-    local playerCoords = GetEntityCoords(PlayerPedId())
-    local printZone = Config.PrintZone
-    local dist = #(playerCoords - printZone.coords)
-
-    if dist > printZone.radius then
-        Notify(Config.Messages.notInPrintZone, 'error')
         return
     end
 
@@ -943,16 +1016,6 @@ function OpenEditionEditor()
 
     if not CanPrint() then
         Notify('Grade insuffisant pour creer une edition', 'error')
-        return
-    end
-
-    -- Verifier si dans zone d'impression
-    local playerCoords = GetEntityCoords(PlayerPedId())
-    local printZone = Config.PrintZone
-    local dist = #(playerCoords - printZone.coords)
-
-    if dist > printZone.radius then
-        Notify(Config.Messages.notInPrintZone, 'error')
         return
     end
 
@@ -1289,32 +1352,6 @@ CreateThread(function()
     AddTextEntry('weazelnews_hq', Config.Blips.hqLabel)
     BeginTextCommandSetBlipName('weazelnews_hq')
     EndTextCommandSetBlipName(hqBlip)
-end)
-
--- =====================================
--- ZONE D'IMPRESSION (ox_target)
--- =====================================
-
-CreateThread(function()
-    Wait(1000)
-
-    exports.ox_target:addSphereZone({
-        coords = Config.PrintZone.coords,
-        radius = Config.PrintZone.radius,
-        options = {
-            {
-                name = 'weazelnews_print',
-                label = 'Imprimer une edition',
-                icon = 'fa-solid fa-print',
-                canInteract = function()
-                    return HasReporterJob() and CanPrint()
-                end,
-                onSelect = function()
-                    TriggerServerEvent('weazelnews:getPrintableArticles')
-                end
-            }
-        }
-    })
 end)
 
 -- =====================================
