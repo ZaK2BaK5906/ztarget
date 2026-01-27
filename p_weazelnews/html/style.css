@@ -1666,14 +1666,20 @@ body {
    ======================================== */
 #edition-editor {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: #1a1a1a;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 85%;
+    height: 80%;
+    max-width: 1400px;
+    max-height: 850px;
+    background: rgba(26, 26, 26, 0.97);
+    border-radius: 8px;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.6);
     z-index: 2000;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .edition-editor-container {
@@ -1683,15 +1689,49 @@ body {
     flex-direction: column;
 }
 
+/* Selection hint */
+.selection-hint {
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 32px;
+}
+
+.selection-hint.active {
+    background: var(--sepia);
+    color: white;
+}
+
+.selection-hint button {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 8px;
+}
+
+.selection-hint button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
 /* Barre superieure */
 .editor-topbar {
-    height: 50px;
+    height: 42px;
     background: linear-gradient(to bottom, #2a2a2a, #1f1f1f);
     border-bottom: 1px solid #3a3a3a;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 15px;
+    padding: 0 12px;
     flex-shrink: 0;
 }
 
@@ -1768,7 +1808,7 @@ body {
 
 /* Sidebars */
 .editor-sidebar {
-    width: 280px;
+    width: 240px;
     background: #252525;
     border-right: 1px solid #3a3a3a;
     display: flex;
@@ -1777,6 +1817,7 @@ body {
 }
 
 .editor-sidebar.right {
+    width: 200px;
     border-right: none;
     border-left: 1px solid #3a3a3a;
 }
@@ -2197,25 +2238,38 @@ body {
 .drop-placeholder {
     text-align: center;
     color: var(--paper-border);
+    cursor: pointer;
+    padding: 15px;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+
+.drop-placeholder:hover {
+    background: rgba(139, 115, 85, 0.1);
+    border-color: var(--sepia);
 }
 
 .drop-placeholder i {
-    font-size: 30px;
+    font-size: 24px;
     display: block;
-    margin-bottom: 10px;
-}
-
-.drop-placeholder span {
-    font-size: 12px;
-}
-
-.drop-placeholder.small i {
-    font-size: 18px;
     margin-bottom: 5px;
 }
 
-.drop-placeholder.small span {
+.drop-placeholder span {
     font-size: 10px;
+}
+
+.drop-placeholder.small {
+    padding: 12px 8px;
+}
+
+.drop-placeholder.small i {
+    font-size: 16px;
+    margin-bottom: 0;
+}
+
+.drop-placeholder.small span {
+    display: none;
 }
 
 /* Grille de colonnes */
@@ -2283,72 +2337,79 @@ body {
     color: var(--ink-light);
 }
 
-/* Elements deposes */
-.dropped-item {
+/* Elements deposes - systeme clic */
+.dropped-item, .dropped-ad, .dropped-element {
     background: white;
     border: 1px solid var(--paper-border);
-    border-radius: 4px;
-    padding: 12px;
-    margin-bottom: 10px;
+    border-radius: 3px;
+    padding: 10px;
+    margin-bottom: 8px;
     position: relative;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
 }
 
-.dropped-item:hover {
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+.dropped-item:hover, .dropped-ad:hover, .dropped-element:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.dropped-item.selected {
-    border-color: var(--sepia);
-    box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.2);
-}
-
-.dropped-item .item-title {
+.dropped-item h3, .dropped-item h4 {
     font-family: 'Playfair Display', serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--ink-dark);
-    margin-bottom: 5px;
+    margin: 0;
+    padding-right: 20px;
 }
 
-.dropped-item .item-preview {
-    font-size: 11px;
-    color: var(--ink-medium);
-    line-height: 1.4;
+.dropped-item.small h4 { font-size: 11px; }
+
+.dropped-ad {
+    background: #f8f4e8;
+    border: 1px dashed var(--sepia);
+    text-align: center;
+    padding: 8px;
 }
 
-.dropped-item .item-remove {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 20px;
-    height: 20px;
-    background: var(--red-accent);
-    border: none;
-    border-radius: 50%;
-    color: white;
+.dropped-ad .ad-label {
+    font-size: 8px;
+    color: var(--sepia);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 3px;
+}
+
+.dropped-ad strong { font-size: 11px; color: var(--ink-dark); }
+
+.dropped-element {
+    background: #f0f0f0;
+    border: 1px dashed #999;
+    text-align: center;
     font-size: 10px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.2s;
+    color: #666;
+    padding: 8px;
 }
 
-.dropped-item:hover .item-remove {
+.dropped-element i { margin-right: 5px; }
+
+.remove {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    color: #c00;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.dropped-item:hover .remove, .dropped-ad:hover .remove, .dropped-element:hover .remove {
     opacity: 1;
 }
 
-/* Une article (grand) */
-.une-zone .dropped-item .item-title {
-    font-size: 22px;
-    margin-bottom: 10px;
-}
-
-.une-zone .dropped-item .item-preview {
-    font-size: 13px;
-    column-count: 2;
-    column-gap: 20px;
-}
+/* Une zone */
+.une-zone .dropped-item h3 { font-size: 18px; }
+.une-zone .drop-placeholder { min-height: 80px; }
 
 /* Panneau proprietes */
 .properties-panel {
@@ -2887,99 +2948,84 @@ body {
     background: var(--sepia-light);
 }
 
-/* Amelioration des cartes articles */
+/* Cartes articles - systeme clic */
 .article-card {
     position: relative;
     background: #333;
     border: 1px solid #444;
     border-radius: 4px;
-    padding: 12px;
-    margin-bottom: 10px;
-    cursor: grab;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
 }
 
 .article-card:hover {
     background: #3a3a3a;
     border-color: var(--sepia);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.article-card.selected {
+    background: var(--sepia);
+    border-color: var(--sepia-light);
+}
+
+.article-card.selected h4 {
+    color: white;
 }
 
 .article-card.used {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: #2a2a2a;
-}
-
-.article-card.used:hover {
-    transform: none;
-    box-shadow: none;
-}
-
-.article-card.dragging {
-    opacity: 0.7;
-    transform: rotate(2deg) scale(1.02);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-}
-
-.article-card-status {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    color: #4a4;
-    font-size: 12px;
+    opacity: 0.4;
+    cursor: default;
 }
 
 .article-card h4 {
     font-family: 'Playfair Display', serif;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--paper-bg);
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     line-height: 1.3;
-    padding-right: 20px;
 }
 
-.article-card-meta {
-    display: flex;
-    justify-content: space-between;
+.article-card .meta {
     font-size: 10px;
     color: #888;
 }
 
-.article-card-category {
+.article-card .meta .cat {
     background: #444;
-    padding: 2px 6px;
+    padding: 1px 5px;
     border-radius: 2px;
     color: var(--sepia-light);
 }
 
-.article-card-actions {
-    display: flex;
-    gap: 5px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #444;
+.badge-used {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    color: #4a4;
+    font-size: 10px;
 }
 
-.btn-card-action {
-    flex: 1;
-    padding: 6px;
-    background: #444;
-    border: none;
-    border-radius: 3px;
-    color: #888;
+/* Ad blocks */
+.ad-block {
+    position: relative;
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
     cursor: pointer;
-    font-size: 11px;
-    transition: all 0.2s;
+    transition: all 0.15s;
 }
 
-.btn-card-action:hover {
-    background: var(--sepia);
-    color: white;
-}
+.ad-block:hover { background: #3a3a3a; border-color: var(--sepia); }
+.ad-block.selected { background: var(--sepia); border-color: var(--sepia-light); }
+.ad-block.used { opacity: 0.4; cursor: default; }
+.ad-block h5 { font-size: 12px; color: var(--paper-bg); margin-bottom: 3px; }
+.ad-block p { font-size: 10px; color: #888; font-style: italic; }
+.ad-block .btn-del { position: absolute; top: 5px; right: 5px; background: none; border: none; color: #666; cursor: pointer; }
+.ad-block .btn-del:hover { color: #c00; }
 
 /* Pool vide */
 .empty-pool {
@@ -3190,59 +3236,49 @@ body {
 .elements-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 6px;
 }
 
 .element-item {
     background: #333;
     border: 1px solid #444;
     border-radius: 4px;
-    padding: 12px 8px;
+    padding: 10px 6px;
     text-align: center;
-    cursor: grab;
-    transition: all 0.2s;
+    cursor: pointer;
+    transition: all 0.15s;
 }
 
 .element-item:hover {
-    background: #3a3a3a;
+    background: var(--sepia);
     border-color: var(--sepia);
+    color: white;
 }
 
-.element-item.dragging {
-    opacity: 0.7;
-    transform: scale(1.05);
-}
+.element-item:hover i, .element-item:hover span { color: white; }
 
 .element-item i {
     display: block;
-    font-size: 20px;
+    font-size: 16px;
     color: var(--sepia-light);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .element-item span {
-    font-size: 10px;
+    font-size: 9px;
     color: #888;
-}
-
-.elements-actions {
-    margin-top: 20px;
 }
 
 .btn-reset-edition {
     width: 100%;
-    padding: 10px;
+    padding: 8px;
+    margin-top: 15px;
     background: #333;
     border: 1px solid #444;
     border-radius: 4px;
     color: #888;
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
 }
 
 .btn-reset-edition:hover {

@@ -346,21 +346,23 @@ Utilisez la barre d'outils pour inserer:
                             <i class="fas fa-file-alt"></i> Articles
                         </button>
                         <button class="tab-btn" data-tab="write" onclick="switchEditorTab('write')">
-                            <i class="fas fa-pen"></i> Rediger
+                            <i class="fas fa-plus"></i> Nouveau
                         </button>
                         <button class="tab-btn" data-tab="ads" onclick="switchEditorTab('ads')">
                             <i class="fas fa-ad"></i> Pubs
                         </button>
                         <button class="tab-btn" data-tab="elements" onclick="switchEditorTab('elements')">
-                            <i class="fas fa-shapes"></i> Elements
+                            <i class="fas fa-shapes"></i> +
                         </button>
+                    </div>
+
+                    <!-- Indicateur de selection -->
+                    <div id="selection-hint" class="selection-hint">
+                        <span>Selectionnez un element</span>
                     </div>
 
                     <!-- Tab Articles -->
                     <div class="tab-content active" id="tab-articles">
-                        <div class="sidebar-search">
-                            <input type="text" id="article-search" placeholder="Rechercher un article..." oninput="filterArticles()">
-                        </div>
                         <div class="articles-pool" id="articles-pool">
                             <!-- Articles disponibles seront charges ici -->
                         </div>
@@ -464,47 +466,28 @@ Utilisez la barre d'outils pour inserer:
 
                     <!-- Tab Elements -->
                     <div class="tab-content" id="tab-elements">
-                        <h4><i class="fas fa-puzzle-piece"></i> Elements decoratifs</h4>
-                        <p class="elements-hint">Glissez-deposez ces elements dans les colonnes</p>
+                        <p class="elements-hint">Cliquez pour selectionner, puis cliquez sur une colonne</p>
                         <div class="elements-grid">
-                            <div class="element-item" draggable="true" data-element-type="separator">
+                            <div class="element-item" onclick="selectElementType('separator')">
                                 <i class="fas fa-grip-lines"></i>
                                 <span>Separateur</span>
                             </div>
-                            <div class="element-item" draggable="true" data-element-type="quote">
+                            <div class="element-item" onclick="selectElementType('quote')">
                                 <i class="fas fa-quote-right"></i>
                                 <span>Citation</span>
                             </div>
-                            <div class="element-item" draggable="true" data-element-type="image">
-                                <i class="fas fa-image"></i>
-                                <span>Image</span>
-                            </div>
-                            <div class="element-item" draggable="true" data-element-type="weather">
+                            <div class="element-item" onclick="selectElementType('weather')">
                                 <i class="fas fa-cloud-sun"></i>
                                 <span>Meteo</span>
                             </div>
-                            <div class="element-item" draggable="true" data-element-type="stocks">
-                                <i class="fas fa-chart-line"></i>
-                                <span>Bourse</span>
-                            </div>
-                            <div class="element-item" draggable="true" data-element-type="spacer">
+                            <div class="element-item" onclick="selectElementType('spacer')">
                                 <i class="fas fa-arrows-alt-v"></i>
                                 <span>Espace</span>
                             </div>
-                            <div class="element-item" draggable="true" data-element-type="divider">
-                                <i class="fas fa-minus"></i>
-                                <span>Filet</span>
-                            </div>
-                            <div class="element-item" draggable="true" data-element-type="ornament">
-                                <i class="fas fa-star-of-life"></i>
-                                <span>Ornement</span>
-                            </div>
                         </div>
-                        <div class="elements-actions">
-                            <button class="btn-reset-edition" onclick="resetEdition()">
-                                <i class="fas fa-undo"></i> Reinitialiser l'edition
-                            </button>
-                        </div>
+                        <button class="btn-reset-edition" onclick="resetEdition()">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
                     </div>
                 </div>
 
