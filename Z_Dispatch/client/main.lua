@@ -183,8 +183,9 @@ local function AcceptAlert()
     -- Notification de confirmation
     PlaySoundFrontend(-1, 'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
 
-    -- Notifier le serveur
-    TriggerServerEvent('Z_Dispatch:alertAccepted', alertId, alertData)
+    -- Notifier le serveur (+ partager avec l'equipage du vehicule)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    TriggerServerEvent('Z_Dispatch:alertAccepted', alertId, alertData, vehicle ~= 0)
 
     -- Timer pour supprimer le blip automatiquement
     if Config.BlipDuration and Config.BlipDuration > 0 then
@@ -470,6 +471,37 @@ end)
 
 RegisterNetEvent('Z_Dispatch:forceEndAlert', function(alertId)
     EndAlert(alertId)
+end)
+
+-- Recevoir un GPS partage par un coequipier
+RegisterNetEvent('Z_Dispatch:shareGPS', function(alertId, alertData)
+    -- Verifier qu'on n'a pas deja ce blip
+    if activeBlips[alertId] then
+        DebugLog('GPS deja actif pour alerte ID: ' .. alertId)
+        return
+    end
+
+    local alertConfig = Config.DefaultAlerts[alertData.type] or Config.DefaultAlerts.custom
+
+    DebugLog('GPS partage recu - ID: ' .. alertId)
+
+    -- Creer le blip GPS
+    local blip = CreateAlertBlip(alertData.coords, alertData.type, alertConfig.title)
+    activeBlips[alertId] = blip
+    activeAlerts[alertId] = alertData
+
+    -- Son de confirmation
+    PlaySoundFrontend(-1, 'SELECT', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+
+    -- Timer pour supprimer le blip automatiquement
+    if Config.BlipDuration and Config.BlipDuration > 0 then
+        SetTimeout(Config.BlipDuration * 1000, function()
+            if activeBlips[alertId] then
+                RemoveAlertBlip(alertId)
+                activeAlerts[alertId] = nil
+            end
+        end)
+    end
 end)
 
 -- ============================================

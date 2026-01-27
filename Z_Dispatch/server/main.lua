@@ -213,12 +213,33 @@ RegisterNetEvent('Z_Dispatch:sendAlert', function(alertData)
 end)
 
 -- Alerte acceptee par un joueur
-RegisterNetEvent('Z_Dispatch:alertAccepted', function(alertId, alertData)
+RegisterNetEvent('Z_Dispatch:alertAccepted', function(alertId, alertData, isInVehicle)
     local source = source
     DebugLog('Alerte ' .. alertId .. ' acceptee par joueur ' .. source)
 
     if alertHistory[alertId] then
         table.insert(alertHistory[alertId].acceptedBy, source)
+    end
+
+    -- Partager le GPS avec les autres occupants du vehicule
+    if isInVehicle then
+        local ped = GetPlayerPed(source)
+        local vehicle = GetVehiclePedIsIn(ped, false)
+
+        if vehicle and vehicle ~= 0 then
+            -- Trouver tous les occupants du vehicule
+            for seat = -1, 5 do -- -1 = conducteur, 0-5 = passagers
+                local seatPed = GetPedInVehicleSeat(vehicle, seat)
+                if seatPed and seatPed ~= 0 and seatPed ~= ped then
+                    local playerId = NetworkGetEntityOwner(seatPed)
+                    -- Verifier que c'est bien un joueur
+                    if playerId and playerId > 0 and playerId ~= source then
+                        DebugLog('Partage GPS avec passager: ' .. playerId)
+                        TriggerClientEvent('Z_Dispatch:shareGPS', playerId, alertId, alertData)
+                    end
+                end
+            end
+        end
     end
 end)
 
