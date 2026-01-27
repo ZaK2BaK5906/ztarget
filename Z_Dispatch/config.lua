@@ -81,3 +81,102 @@ Config.TestCommands = {
     ems = 'testalertems',
     custom = 'testalertcustom'
 }
+
+-- ============================================
+-- SYSTEME D'ALERTE DE TIR AUTOMATIQUE
+-- ============================================
+
+Config.GunShot = {
+    enabled = true,                    -- Activer/desactiver les alertes de tir
+    cooldown = 30,                     -- Cooldown entre chaque alerte (secondes)
+    checkInterval = 500,               -- Intervalle de verification (ms)
+    excludeJobs = {'police', 'sheriff', 'fbi', 'bcso'}, -- Jobs exclus des alertes
+    alertTitle = 'Coups de feu signales',
+    alertInfo = 'Tirs entendus dans le secteur'
+}
+
+-- ============================================
+-- CONFIGURATION ALERTES VEHICULES
+-- ============================================
+
+Config.VehicleAlert = {
+    enabled = true,
+    showModel = true,      -- Afficher le modele du vehicule
+    showPlate = true,      -- Afficher la plaque
+    showColor = true,      -- Afficher la couleur
+    alertTitle = 'Vehicule signale'
+}
+
+-- Couleurs des vehicules (traduction)
+Config.VehicleColors = {
+    [0] = 'Noir Metalise',
+    [1] = 'Noir Graphite',
+    [2] = 'Noir Acier',
+    [3] = 'Gris Fonce',
+    [4] = 'Argent',
+    [5] = 'Bleu Argent',
+    [6] = 'Gris Acier',
+    [7] = 'Gris Ombre',
+    [8] = 'Argent Pierre',
+    [9] = 'Argent Minuit',
+    [10] = 'Argent Pistolet',
+    [11] = 'Gris Clair',
+    [12] = 'Blanc',
+    [13] = 'Blanc Givre',
+    [14] = 'Blanc Glace',
+    [27] = 'Rouge',
+    [28] = 'Rouge Torino',
+    [29] = 'Rouge Formula',
+    [30] = 'Rouge Blaze',
+    [31] = 'Rouge Gracieux',
+    [32] = 'Rouge Grenat',
+    [33] = 'Rouge Desert',
+    [34] = 'Rouge Cabernet',
+    [35] = 'Rouge Bonbon',
+    [36] = 'Rouge Lever Soleil',
+    [37] = 'Orange Classique',
+    [38] = 'Orange Vif',
+    [39] = 'Or',
+    [40] = 'Orange Lever Soleil',
+    [41] = 'Bronze',
+    [42] = 'Jaune',
+    [43] = 'Jaune Course',
+    [44] = 'Jaune Bronze',
+    [45] = 'Vert Citron',
+    [46] = 'Olive Champagne',
+    [47] = 'Mousse',
+    [48] = 'Olive Fonce',
+    [49] = 'Vert Fonce',
+    [50] = 'Vert Course',
+    [51] = 'Vert Mer',
+    [52] = 'Vert Olive',
+    [53] = 'Vert Vif',
+    [54] = 'Vert Essence',
+    [55] = 'Bleu Fonce',
+    [56] = 'Bleu Saxe',
+    [57] = 'Bleu',
+    [58] = 'Bleu Marin',
+    [59] = 'Bleu Port',
+    [60] = 'Bleu Diamant',
+    [61] = 'Bleu Surf',
+    [62] = 'Bleu Nautique',
+    [63] = 'Bleu Vif',
+    [64] = 'Bleu Violet',
+    [65] = 'Bleu Spinnaker',
+    [66] = 'Bleu Ultra',
+    [67] = 'Bleu Lumineux',
+    [68] = 'Bleu Acier Fonce',
+    [69] = 'Bleu Ardoise',
+    [70] = 'Bleu Corsa',
+    [71] = 'Bleu Minuit',
+    [72] = 'Violet Fonce',
+    [73] = 'Violet',
+    [74] = 'Violet Metallise',
+    [75] = 'Violet Ketch',
+    [76] = 'Violet Vif',
+    [77] = 'Rose Vif',
+    [88] = 'Noir Mat',
+    [111] = 'Blanc Mat',
+    [112] = 'Blanc',
+    [134] = 'Jaune Taxi'
+}

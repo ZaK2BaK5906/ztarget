@@ -449,12 +449,169 @@ local function GetPendingAlertsCount()
     return #pendingAlerts
 end
 
+-- ============================================
+-- EXPORT: ALERTE VEHICULE AVEC DETAILS
+-- ============================================
+
+-- Obtenir la couleur du vehicule en texte
+local function GetVehicleColorName(vehicle)
+    local colorPrimary, colorSecondary = GetVehicleColours(vehicle)
+    return Config.VehicleColors[colorPrimary] or ('Couleur #' .. colorPrimary)
+end
+
+-- Obtenir le nom du modele du vehicule
+local function GetVehicleModelName(vehicle)
+    local model = GetEntityModel(vehicle)
+    local displayName = GetDisplayNameFromVehicleModel(model)
+    local labelName = GetLabelText(displayName)
+
+    if labelName == 'NULL' or labelName == '' then
+        return displayName
+    end
+    return labelName
+end
+
+-- Export: Envoyer une alerte vehicule avec details
+local function SendVehicleAlert(message, vehicle, coords, extraInfo)
+    if not Config.VehicleAlert.enabled then return end
+
+    vehicle = vehicle or GetVehiclePedIsIn(PlayerPedId(), false)
+    coords = coords or GetEntityCoords(vehicle ~= 0 and vehicle or PlayerPedId())
+    local street = GetStreetName(coords)
+
+    local info = ''
+
+    if vehicle and vehicle ~= 0 then
+        -- Modele
+        if Config.VehicleAlert.showModel then
+            local modelName = GetVehicleModelName(vehicle)
+            info = info .. 'Modele: ' .. modelName
+        end
+
+        -- Plaque
+        if Config.VehicleAlert.showPlate then
+            local plate = GetVehicleNumberPlateText(vehicle)
+            if plate then
+                info = info .. ' | Plaque: ' .. plate:gsub('%s+', '')
+            end
+        end
+
+        -- Couleur
+        if Config.VehicleAlert.showColor then
+            local color = GetVehicleColorName(vehicle)
+            info = info .. ' | ' .. color
+        end
+    end
+
+    -- Ajouter info supplementaire
+    if extraInfo then
+        info = info .. ' | ' .. extraInfo
+    end
+
+    DebugLog('Export SendVehicleAlert appele - Info: ' .. info)
+
+    TriggerServerEvent('Z_Dispatch:sendAlert', {
+        type = 'police',
+        message = message or Config.VehicleAlert.alertTitle,
+        coords = coords,
+        street = street,
+        info = info,
+        sender = GetPlayerServerId(PlayerId())
+    })
+end
+
+-- Export: Alerte vehicule simple (juste le vehicule du joueur)
+local function SendMyVehicleAlert(message)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if vehicle == 0 then
+        vehicle = GetVehiclePedIsIn(PlayerPedId(), true) -- Dernier vehicule
+    end
+    SendVehicleAlert(message, vehicle)
+end
+
+-- ============================================
+-- SYSTEME D'ALERTE DE TIR AUTOMATIQUE
+-- ============================================
+
+local lastGunShotAlert = 0
+local gunShotCooldown = (Config.GunShot and Config.GunShot.cooldown or 30) * 1000
+
+-- Verifier si le joueur a un job exclu
+local function IsJobExcluded()
+    if not Config.GunShot or not Config.GunShot.excludeJobs then return false end
+
+    local ESX = exports['es_extended']:getSharedObject()
+    local playerData = ESX.GetPlayerData()
+
+    if playerData and playerData.job then
+        for _, job in ipairs(Config.GunShot.excludeJobs) do
+            if playerData.job.name == job then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Thread de detection des tirs
+CreateThread(function()
+    if not Config.GunShot or not Config.GunShot.enabled then
+        DebugLog('Systeme d\'alerte de tir desactive')
+        return
+    end
+
+    DebugLog('Systeme d\'alerte de tir actif')
+
+    while true do
+        Wait(Config.GunShot.checkInterval or 500)
+
+        local ped = PlayerPedId()
+
+        -- Verifier si le joueur tire
+        if IsPedShooting(ped) then
+            local currentTime = GetGameTimer()
+
+            -- Verifier cooldown et job
+            if currentTime - lastGunShotAlert > gunShotCooldown and not IsJobExcluded() then
+                lastGunShotAlert = currentTime
+
+                local coords = GetEntityCoords(ped)
+                local street = GetStreetName(coords)
+
+                -- Verifier si dans un vehicule pour ajouter les infos
+                local vehicle = GetVehiclePedIsIn(ped, false)
+                local info = Config.GunShot.alertInfo
+
+                if vehicle ~= 0 then
+                    local modelName = GetVehicleModelName(vehicle)
+                    local plate = GetVehicleNumberPlateText(vehicle)
+                    local color = GetVehicleColorName(vehicle)
+                    info = modelName .. ' | ' .. color .. ' | ' .. plate:gsub('%s+', '')
+                end
+
+                DebugLog('Alerte de tir declenchee')
+
+                TriggerServerEvent('Z_Dispatch:sendAlert', {
+                    type = 'police',
+                    message = Config.GunShot.alertTitle,
+                    coords = coords,
+                    street = street,
+                    info = info,
+                    sender = GetPlayerServerId(PlayerId())
+                })
+            end
+        end
+    end
+end)
+
 -- Enregistrement des exports
 exports('SendPoliceAlert', SendPoliceAlert)
 exports('SendSheriffAlert', SendSheriffAlert)
 exports('SendEMSAlert', SendEMSAlert)
 exports('SendCustomAlert', SendCustomAlert)
 exports('SendAllServicesAlert', SendAllServicesAlert)
+exports('SendVehicleAlert', SendVehicleAlert)
+exports('SendMyVehicleAlert', SendMyVehicleAlert)
 exports('FinishAlert', FinishAlert)
 exports('ClearAlerts', ClearAlerts)
 exports('GetActiveAlerts', GetActiveAlerts)
@@ -554,6 +711,32 @@ if Config.Debug then
     RegisterCommand('pendingalerts', function()
         print('[Z_Dispatch] Alertes en attente: ' .. #pendingAlerts)
         print('[Z_Dispatch] Alertes actives (GPS): ' .. #activeAlerts)
+    end, false)
+
+    -- Commande test alerte vehicule
+    RegisterCommand('testalertvehicle', function()
+        local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+        if vehicle == 0 then
+            print('[Z_Dispatch] Tu dois etre dans un vehicule !')
+            return
+        end
+        SendVehicleAlert('Vehicule suspect signale', vehicle)
+        DebugLog('Commande test vehicule executee')
+    end, false)
+
+    -- Commande pour tester l'alerte de tir manuellement
+    RegisterCommand('testalertgunshot', function()
+        local coords = GetEntityCoords(PlayerPedId())
+        local street = GetStreetName(coords)
+        TriggerServerEvent('Z_Dispatch:sendAlert', {
+            type = 'police',
+            message = Config.GunShot.alertTitle,
+            coords = coords,
+            street = street,
+            info = 'Test manuel - ' .. Config.GunShot.alertInfo,
+            sender = GetPlayerServerId(PlayerId())
+        })
+        DebugLog('Commande test gunshot executee')
     end, false)
 
     DebugLog('Commandes de test enregistrees')
